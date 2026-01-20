@@ -1,0 +1,3352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Life Load Calculator</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>2D Room Planner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+  
+  #watermark-top {
+    position: absolute;
+    top: 8px;
+    left: 350px;
+    font-size: 22px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 400;
+    color: rgba(0,0,0,0.75);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  #watermark-bottom {
+    position: absolute;
+    bottom: 6px;
+    right: 12px;
+    font-size: 11px;
+    font-family: 'Poppins', sans-serif;
+    color: rgba(0,0,0,0.55);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* כפתור + חלון קיצורי דרך - נשארים, אבל בלי top-bar */
+  .shortcuts-toggle {
+    position: fixed;
+    top: 10px;
+    right: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid #007bff;
+    background: #ffffff;
+    color: #007bff;
+    cursor: pointer;
+    font-family: Arial, Helvetica, sans-serif;
+    z-index: 2000;
+  }
+
+  .shortcuts-panel {
+    position: fixed;
+    right: 20px;
+    top: 40px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    padding: 8px 10px;
+    font-size: 12px;
+    z-index: 2000;
+    border-radius: 4px;
+  }
+
+  .shortcuts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .shortcuts-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    color: #555;
+  }
+
+  .shortcuts-close:hover {
+    color: #000;
+  }
+
+  .shortcuts-panel ul {
+    padding-left: 16px;
+    margin: 4px 0 0 0;
+  }
+
+  .shortcuts-panel li {
+    margin-bottom: 3px;
+  }
+
+  /* שאר העיצוב – בדיוק כמו בקוד 2 */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: #f4f4f4;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .app { display: flex; height: 100vh; width: 100vw; }
+
+  .sidebar {
+    width: 340px;
+    background: #ffffff;
+    border-right: 1px solid #ddd;
+    padding: 12px 14px;
+    overflow-y: auto;
+  }
+  .section { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0; }
+  .section h2 { font-size: 16px; margin: 0 0 8px 0; }
+  .section small { color: #777; }
+  label { display: block; font-size: 13px; margin-top: 6px; margin-bottom: 2px; }
+
+  input[type="number"], input[type="text"] {
+    width: 100%; padding: 5px 7px; font-size: 13px;
+    border-radius: 4px; border: 1px solid #ccc;
+  }
+
+  button {
+    margin-top: 8px; padding: 6px 10px; font-size: 13px;
+    border-radius: 4px; border: 1px solid #007bff;
+    background: #007bff; color: #fff; cursor: pointer;
+  }
+  button.secondary { background: #ffffff; color: #007bff; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .button-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .canvas-wrapper {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px; gap: 8px;
+  }
+  .canvas-scroll {
+    flex: 1; width: 100%; max-width: 1200px; max-height: 750px;
+    border: 1px solid #ccc; background: #e9e9e9;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; cursor: grab;
+  }
+  .canvas-scroll.grabbing { cursor: grabbing; }
+
+  #roomCanvas { background: #fafafa; display: block; }
+  /* Improve touch handling on mobile */
+  #roomCanvas {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .info-bar {
+    font-size: 13px; color: #444; width: 100%; max-width: 1200px;
+    display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  }
+  .info-bar span { white-space: nowrap; }
+  .tag {
+    display: inline-block; border-radius: 4px; padding: 2px 6px;
+    background: #eef5ff; border: 1px solid #c9ddff; font-size: 11px;
+  }
+  .mode-active { background: #0056b3; color: #ffffff; border-color: #0056b3; }
+  
+  .buy-coffee-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #ffdd00;
+  color: #000;
+  padding: 12px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.buy-coffee-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+}
+
+</style>
+
+</head>
+<body>
+  <button id="shortcutsBtn"
+          type="button"
+          class="shortcuts-toggle">
+    ⌨ Shortcuts
+  </button>
+
+  <div class="app">
+    <div class="sidebar">
+      <div class="section">
+        <h2>Overlap & design modes</h2>
+        <button id="toggleOverlapMode" type="button" class="secondary">
+          Mode: reality (no overlap)
+        </button>
+        <small style="font-size:11px; color:#666;">
+          Click to switch between design mode (items may overlap) and reality mode (no overlap).
+        </small>
+
+        <button id="toggleRoomDesignMode" type="button" class="secondary" style="margin-top:6px;">
+          Room design mode: OFF
+        </button>
+        <small style="font-size:11px; color:#666;">
+          When ON, drag inside the room to draw fixed room segments (zones) with live size.
+        </small>
+      </div>
+
+      <div style="margin:8px 0 12px 0;">
+        <button id="showWalkthroughBtn" type="button" class="secondary">Show walkthrough</button>
+      </div>
+
+
+      <div class="section">
+        <h2>Room settings</h2>
+        <small>Sizes are in centimeters.</small>
+
+        <label for="unitSelect">Units</label>
+        <select id="unitSelect">
+          <option value="cm">Centimeters (cm)</option>
+          <option value="imperial">Inches / Feet</option>
+        </select>
+
+        <label for="roomWidth">Room width (cm)</label>
+        <input id="roomWidth" type="number" min="50" value="400" />
+
+        <label for="roomHeight">Room height (cm)</label>
+        <input id="roomHeight" type="number" min="50" value="300" />
+
+        <label for="cmPerPixel">Base scale - centimeters per pixel</label>
+        <input id="cmPerPixel" type="number" min="0.3" step="0.1" value="0.8" />
+
+        <label for="cellSizeCm">Grid cell size (cm)</label>
+        <input id="cellSizeCm" type="number" min="10" step="10" value="50" />
+
+        <div class="button-row">
+          <button id="applyRoom">Apply room size</button>
+          <button id="resetView" class="secondary" type="button">Reset</button>
+        </div>
+        <div class="button-row">
+          <button id="autoArrange" class="secondary" type="button">Auto arrange</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>New furniture</h2>
+        <small>Add items by numbers or draw them.</small>
+
+        <label for="itemSearch">Library / Search</label>
+        <input id="itemSearch" type="text" placeholder="Search standard items (bed, desk)" />
+        <div id="itemLibraryList" style="max-height:120px; overflow:auto; border:1px solid #eee; padding:6px; margin-top:6px;"></div>
+
+        <label for="fName">Name</label>
+        <input id="fName" type="text" placeholder="Bed / Closet / Desk" />
+
+        <label for="fWidth">Width (cm)</label>
+        <input id="fWidth" type="number" min="10" value="200" />
+
+        <label for="fHeight">Depth (cm)</label>
+        <input id="fHeight" type="number" min="10" value="150" />
+
+        <div class="button-row">
+          <button id="addFurniture" type="button">Add furniture</button>
+          <button id="toggleDrawMode" type="button" class="secondary">Draw with mouse</button>
+          <button id="addDoor" type="button" class="secondary">Add door on wall</button>
+          <button id="addWindow" type="button" class="secondary">Add window on wall</button>
+        </div>
+        <small id="modeHint" style="font-size:11px; color:#666;">
+          Mode: numeric placement and drag.
+        </small>
+      </div>
+
+      <div class="section">
+        <h2>Selected item</h2>
+        <small>Click an item in the plan to select it.</small>
+        <div id="selectedInfo">No item selected.</div>
+
+        <label for="selectedNameInput">Item name</label>
+        <input id="selectedNameInput" type="text" placeholder="Edit selected item name" />
+
+        <label for="selectedWidthInput">Width (cm)</label>
+        <input id="selectedWidthInput" type="number" min="1" step="1" />
+
+        <label for="selectedHeightInput">Depth (cm)</label>
+        <input id="selectedHeightInput" type="number" min="1" step="1" />
+
+        <label for="selectedXInput">X position (cm)</label>
+        <input id="selectedXInput" type="number" step="1" />
+
+        <label for="selectedYInput">Y position (cm)</label>
+        <input id="selectedYInput" type="number" step="1" />
+
+        <div class="button-row">
+          <button id="rotateSelected" type="button" disabled>Rotate 90°</button>
+          <button id="mergeSelected" type="button" class="secondary" disabled>Merge with neighbor</button>
+          <button id="deleteSelected" type="button" class="secondary" disabled>Delete</button>
+        </div>
+        <div class="button-row">
+          <button id="undoAction" class="secondary" type="button" disabled>Undo</button>
+          <button id="redoAction" class="secondary" type="button" disabled>Redo</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Export</h2>
+        <small>Save the current plan as an image (PNG) or as a PDF.</small>
+
+        <label for="exportName">File name</label>
+        <input id="exportName" type="text" placeholder="My_room_layout" />
+
+        <div class="button-row">
+          <button id="exportPngBtn" type="button">Export PNG</button>
+          <button id="exportPdfBtn" type="button" class="secondary">Export PDF</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Usage tips</h2>
+        <ul style="padding-left: 18px; font-size: 12px; margin: 0;">
+          <li>Left click an item to select and drag it.</li>
+          <li>Drag on empty space to pan the view.</li>
+          <li>Mouse wheel zooms at cursor.</li>
+          <li>Draw mode lets you create items by dragging a rectangle.</li>
+          <li>Items can not overlap other items.</li>
+          <li>Merge joins two touching items to one L shape with two blocks.</li>
+          <li>Undo and Redo affect add, delete, move, rotate and merge.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="walkthroughOverlay" style="display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:3000;">
+      <div style="max-width:760px; margin:60px auto; background:#fff; border-radius:8px; padding:18px;">
+        <h3>Quick walkthrough</h3>
+        <ol>
+          <li>Use the <strong>New furniture</strong> panel to add items numerically or draw with the mouse.</li>
+          <li>Drag items to position; they snap to the grid. Toggle reality/design mode to allow overlaps.</li>
+          <li>Use Undo / Redo (Ctrl+Z / Ctrl+Y). Use the shortcuts panel for keys.</li>
+          <li>Use the Units selector to switch between cm and inches/feet display.</li>
+        </ol>
+        <div style="text-align:right; margin-top:8px;"><button id="closeWalkthrough">Close</button></div>
+      </div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <div class="canvas-scroll" id="canvasScroll">
+        <div id="watermark-top">By Jkimd</div>
+        <div id="watermark-bottom">© Jkimd - All rights reserved</div>
+        <canvas id="roomCanvas" width="1400" height="900"></canvas>
+      </div>
+
+      <div class="info-bar">
+        <span id="scaleInfo" class="tag"></span>
+        <span id="roomInfo" class="tag"></span>
+        <span id="hintInfo" class="tag">
+          Hint: wheel to zoom, drag empty space to move, draw rectangles to create items.
+        </span>
+      </div>
+    </div>
+
+
+      <div id="shortcutsPanel" class="shortcuts-panel" style="display:none;">
+        <div class="shortcuts-header">
+          <strong>קיצורי מקלדת ועכבר</strong>
+          <button id="shortcutsCloseBtn" type="button" class="shortcuts-close">×</button>
+        </div>
+        <ul>
+          <li><b>Ctrl+Z</b> / <b>Ctrl+ז</b> - Undo (ביטול פעולה אחרונה)</li>
+          <li><b>Ctrl+Y</b> / <b>Ctrl+י</b> / <b>Ctrl+Shift+Z</b> / <b>Ctrl+Shift+ז</b> - Redo</li>
+          <li><b>Delete</b> / <b>Backspace</b> - מחיקת האייטם הנבחר</li>
+          <li><b>R</b> / <b>ר</b> - סיבוב האייטם הנבחר ב-90°</li>
+          <li><b>חיצים</b> - הזזת האייטם בכמה פיקסלים</li>
+          <li><b>Shift + חיצים</b> - הזזה בקפיצה גדולה יותר</li>
+          <li><b>Enter</b> בשדות "New furniture" - הוספת אייטם חדש</li>
+          <li><b>Enter</b> בשדות "Room settings" - Apply room size</li>
+          <li>גלגלת עכבר - זום פנימה / החוצה</li>
+          <li>גרירה על שטח ריק - הזזת התצוגה (Pan)</li>
+        </ul>
+      </div>
+
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script>
+    const canvas = document.getElementById("roomCanvas");
+    // Prevent default browser touch gestures on the canvas and use Pointer Events
+    try { canvas.style.touchAction = 'none'; } catch (err) {}
+    const ctx = canvas.getContext("2d");
+    const canvasScroll = document.getElementById("canvasScroll");
+
+    const roomWidthInput = document.getElementById("roomWidth");
+    const roomHeightInput = document.getElementById("roomHeight");
+    const cmPerPixelInput = document.getElementById("cmPerPixel");
+    const cellSizeCmInput = document.getElementById("cellSizeCm");
+
+    const applyRoomBtn = document.getElementById("applyRoom");
+    const resetViewBtn = document.getElementById("resetView");
+    const autoArrangeBtn = document.getElementById("autoArrange");
+
+    const fNameInput = document.getElementById("fName");
+    const fWidthInput = document.getElementById("fWidth");
+    const fHeightInput = document.getElementById("fHeight");
+    const addFurnitureBtn = document.getElementById("addFurniture");
+    const toggleDrawModeBtn = document.getElementById("toggleDrawMode");
+    const modeHint = document.getElementById("modeHint");
+    const addDoorBtn = document.getElementById("addDoor");
+    const addWindowBtn = document.getElementById("addWindow");
+
+    const selectedInfo = document.getElementById("selectedInfo");
+    const rotateBtn = document.getElementById("rotateSelected");
+    const mergeBtn = document.getElementById("mergeSelected");
+    const deleteBtn = document.getElementById("deleteSelected");
+    const undoBtn = document.getElementById("undoAction");
+    const redoBtn = document.getElementById("redoAction");
+    const selectedNameInput = document.getElementById("selectedNameInput");
+    const selectedWidthInput = document.getElementById("selectedWidthInput");
+    const selectedHeightInput = document.getElementById("selectedHeightInput");
+    const selectedXInput = document.getElementById("selectedXInput");
+    const selectedYInput = document.getElementById("selectedYInput");
+    const exportNameInput = document.getElementById("exportName");
+    const exportPngBtn = document.getElementById("exportPngBtn");
+    const exportPdfBtn = document.getElementById("exportPdfBtn");
+
+
+    const scaleInfo = document.getElementById("scaleInfo");
+    const roomInfo = document.getElementById("roomInfo");
+    const unitSelect = document.getElementById("unitSelect");
+    const itemSearchInput = document.getElementById("itemSearch");
+    const itemLibraryList = document.getElementById("itemLibraryList");
+
+    const overlapModeBtn = document.getElementById("toggleOverlapMode");
+    const roomDesignModeBtn = document.getElementById("toggleRoomDesignMode");
+
+    // מוד עיצוב חדר - ציור מקטעים קבועים
+    let roomDesignMode = false;
+    let roomSegments = [];      // כל מקטע: { x, y, w, h, widthCm, heightCm }
+
+    // סוג המלבן הנוכחי בציור: "furniture" או "room"
+    let rectMode = null;
+
+
+    function updateOverlapButton() {
+      if (allowOverlap) {
+        overlapModeBtn.textContent = "Mode: design (overlap allowed)";
+        overlapModeBtn.classList.add("mode-active");
+        overlapModeBtn.classList.remove("secondary");
+      } else {
+        overlapModeBtn.textContent = "Mode: reality (no overlap)";
+        overlapModeBtn.classList.remove("mode-active");
+        overlapModeBtn.classList.add("secondary");
+      }
+    }
+
+    overlapModeBtn.addEventListener("click", () => {
+      allowOverlap = !allowOverlap;
+      updateOverlapButton();
+    });
+
+    function updateRoomDesignButton() {
+      if (!roomDesignModeBtn) return;
+      if (roomDesignMode) {
+        roomDesignModeBtn.textContent = "Room design mode: ON";
+        roomDesignModeBtn.classList.add("mode-active");
+        roomDesignModeBtn.classList.remove("secondary");
+        // לוודא שמוד ציור רהיטים לא פעיל במקביל
+        setDrawMode(false);
+      } else {
+        roomDesignModeBtn.textContent = "Room design mode: OFF";
+        roomDesignModeBtn.classList.remove("mode-active");
+        roomDesignModeBtn.classList.add("secondary");
+      }
+    }
+
+    if (roomDesignModeBtn) {
+      roomDesignModeBtn.addEventListener("click", () => {
+        roomDesignMode = !roomDesignMode;
+        updateRoomDesignButton();
+      });
+    }
+
+
+    // ברירות מחדל של החדר
+    const DEFAULT_ROOM_WIDTH_CM = 400;
+    const DEFAULT_ROOM_HEIGHT_CM = 300;
+    const DEFAULT_CM_PER_PIXEL = 0.8;
+    const DEFAULT_CELL_SIZE_CM = 50;
+
+    // אובייקט החדר
+    const room = {
+      widthCm: DEFAULT_ROOM_WIDTH_CM,
+      heightCm: DEFAULT_ROOM_HEIGHT_CM,
+      cmPerPixel: DEFAULT_CM_PER_PIXEL,
+      cellSizeCm: DEFAULT_CELL_SIZE_CM,
+      segments: null
+    };
+
+    // מאפס את החדר והאינפוטים לערכי הדיפולט
+    function initRoomDefaults() {
+      room.widthCm = DEFAULT_ROOM_WIDTH_CM;
+      room.heightCm = DEFAULT_ROOM_HEIGHT_CM;
+      room.cmPerPixel = DEFAULT_CM_PER_PIXEL;
+      room.cellSizeCm = DEFAULT_CELL_SIZE_CM;
+      room.segments = null;
+
+      // לדרוך על כל מה שהדפדפן שחזר אחרי F5
+      roomWidthInput.value = room.widthCm;
+      roomHeightInput.value = room.heightCm;
+      cmPerPixelInput.value = room.cmPerPixel;
+      cellSizeCmInput.value = room.cellSizeCm;
+    }
+
+    function updateRoomSizeFromSegments() {
+      if (!room.segments || !room.segments.length) return;
+
+      let maxX = 0;
+      let maxY = 0;
+
+      room.segments.forEach(seg => {
+        const sx2 = seg.x + seg.widthPx;
+        const sy2 = seg.y + seg.heightPx;
+        if (sx2 > maxX) maxX = sx2;
+        if (sy2 > maxY) maxY = sy2;
+      });
+
+      const wPx = maxX;
+      const hPx = maxY;
+
+      room.widthCm = wPx * room.cmPerPixel;
+      room.heightCm = hPx * room.cmPerPixel;
+
+      if (roomWidthInput)  roomWidthInput.value  = room.widthCm.toFixed(0);
+      if (roomHeightInput) roomHeightInput.value = room.heightCm.toFixed(0);
+    }
+
+
+
+    const colorPalette = ["#cce5ff", "#ffe5cc", "#e5ffcc", "#f5ccff", "#ffd9ec"];
+
+    let furniture = [];
+    let nextId = 1;
+
+    let selectedId = null;
+    let isDraggingItem = false;
+    let dragOffsetX = 0;
+    let dragStarted = false;
+    let dragOffsetY = 0;
+
+    let isPanningView = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panStartOffsetX = 0;
+    let panStartOffsetY = 0;
+
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+
+    let drawMode = false;
+    let allowOverlap = false;
+    let isDrawingItem = false;
+    let drawStartRoomX = 0;
+    let drawStartRoomY = 0;
+    let currentDrawRect = null;
+    let liveSizeLabel = null;   // תווית מידות חיה בזמן גרירה/ציור
+    let liveDistanceLabel = null; // תווית מרחקים חיה (L/R/T/B)
+    let livePreviewRect = null; // {x,y,w,h,blocked}
+    // pinch-to-zoom state
+    let isPinching = false;
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+    let pinchCenter = { x: 0, y: 0 };
+
+    // History
+    let history = [];
+    let historyIndex = -1;
+    let restoringHistory = false;
+
+    function deepCopy(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    // Simple standard items library (name, widthCm, heightCm)
+    const standardItems = [
+      { name: 'Single bed', w: 90, h: 200 },
+      { name: 'Double bed', w: 140, h: 200 },
+      { name: 'Sofa', w: 200, h: 90 },
+      { name: 'Desk', w: 120, h: 60 },
+      { name: 'Wardrobe', w: 100, h: 60 }
+    ];
+
+    function cmToInches(cm) {
+      return cm / 2.54;
+    }
+
+    function formatDim(valueCm) {
+      const unit = (unitSelect && unitSelect.value) || 'cm';
+      if (unit === 'cm') return `${Math.round(valueCm)} cm`;
+      const inches = cmToInches(valueCm);
+      if (inches >= 24) {
+        const ft = Math.floor(inches / 12);
+        const remIn = Math.round(inches - ft * 12);
+        return `${ft}ft ${remIn}in (${Math.round(valueCm)} cm)`;
+      }
+      return `${Math.round(inches)} in (${Math.round(valueCm)} cm)`;
+    }
+
+    function renderLibrary(filter) {
+      if (!itemLibraryList) return;
+      const q = (filter || '').toLowerCase().trim();
+      itemLibraryList.innerHTML = '';
+      standardItems.forEach(it => {
+        if (q && !it.name.toLowerCase().includes(q)) return;
+        const div = document.createElement('div');
+        div.style.padding = '6px';
+        div.style.borderBottom = '1px solid #f0f0f0';
+        div.style.cursor = 'pointer';
+        div.textContent = `${it.name} — ${it.w}×${it.h} cm`;
+        div.addEventListener('click', () => addStandardItem(it));
+        itemLibraryList.appendChild(div);
+      });
+    }
+
+    function addStandardItem(def) {
+      fNameInput.value = def.name;
+      fWidthInput.value = def.w;
+      fHeightInput.value = def.h;
+      addFurniture();
+    }
+
+    if (itemSearchInput) {
+      itemSearchInput.addEventListener('input', () => renderLibrary(itemSearchInput.value));
+      renderLibrary('');
+    }
+    if (unitSelect) {
+      unitSelect.addEventListener('change', () => draw());
+    }
+
+    // Snap a pixel value to the room grid (grid in pixels = room.cellSizeCm / room.cmPerPixel)
+    function snapToGridPx(valuePx) {
+      const cellPx = room.cellSizeCm / room.cmPerPixel;
+      if (!cellPx || cellPx <= 0) return valuePx;
+      return Math.round(valuePx / cellPx) * cellPx;
+    }
+
+    function captureState() {
+      return {
+        room: { ...room },
+        furniture: deepCopy(furniture),
+        roomSegments: deepCopy(roomSegments),
+        selectedId,
+        zoom,
+        panX,
+        panY
+      };
+    }
+
+
+    function pushHistory() {
+      if (restoringHistory) return;
+      const snap = captureState();
+      history = history.slice(0, historyIndex + 1);
+      history.push(snap);
+      historyIndex = history.length - 1;
+      updateUndoRedoUI();
+    }
+
+    function restoreSnapshot(index) {
+      if (index < 0 || index >= history.length) return;
+      restoringHistory = true;
+      const snap = history[index];
+
+      Object.assign(room, snap.room);
+      furniture = snap.furniture || [];
+      roomSegments = snap.roomSegments || [];
+      selectedId = snap.selectedId || null;
+      zoom = snap.zoom || 1;
+      panX = snap.panX || 0;
+      panY = snap.panY || 0;
+
+
+      roomWidthInput.value = room.widthCm;
+      roomHeightInput.value = room.heightCm;
+      cmPerPixelInput.value = room.cmPerPixel;
+      cellSizeCmInput.value = room.cellSizeCm;
+
+      historyIndex = index;
+      restoringHistory = false;
+
+      updateUndoRedoUI();
+      refreshSelectionUI();
+      resizeCanvasToRoom();
+      draw();
+    }
+
+    function updateUndoRedoUI() {
+      undoBtn.disabled = historyIndex <= 0;
+      redoBtn.disabled = historyIndex >= history.length - 1 || history.length === 0;
+    }
+
+    function undoLast() {
+      if (historyIndex > 0) {
+        restoreSnapshot(historyIndex - 1);
+      }
+    }
+
+    function redoLast() {
+      if (historyIndex < history.length - 1) {
+        restoreSnapshot(historyIndex + 1);
+      }
+    }
+
+    function ensureSegments(item) {
+      if (!item.segments || !item.segments.length) {
+        item.segments = [{
+          x: 0,
+          y: 0,
+          widthPx: item.widthPx,
+          heightPx: item.heightPx,
+          widthCm: item.widthPx * room.cmPerPixel,
+          heightCm: item.heightPx * room.cmPerPixel,
+          label: item.name
+        }];
+      } else {
+        item.segments.forEach(seg => {
+          if (seg.widthCm == null) seg.widthCm = seg.widthPx * room.cmPerPixel;
+          if (seg.heightCm == null) seg.heightCm = seg.heightPx * room.cmPerPixel;
+          if (!seg.label) seg.label = item.name;
+        });
+      }
+    }
+
+    function getRoomPixelSize() {
+      return {
+        w: room.widthCm / room.cmPerPixel,
+        h: room.heightCm / room.cmPerPixel
+      };
+    }
+
+    function pointInRoom(px, py) {
+      // אם אין סגמנטים - נ fallback על החדר המלבני
+      if (!room.segments || !room.segments.length) {
+        const size = getRoomPixelSize();
+        const eps = 0.01;
+        return px >= -eps && px <= size.w + eps && py >= -eps && py <= size.h + eps;
+      }
+
+      // אם יש סגמנטים - מספיק שהוא נמצא בתוך אחד מהם
+      const eps = 0.01;
+      return room.segments.some(seg =>
+        px >= seg.x - eps &&
+        px <= seg.x + seg.widthPx + eps &&
+        py >= seg.y - eps &&
+        py <= seg.y + seg.heightPx + eps
+      );
+    }
+
+    // בודק שהמלבן כולו בתוך החדר
+    function rectFullyInsideRoom(x, y, w, h) {
+      const samples = [
+        { x: x + 1,       y: y + 1 },
+        { x: x + w - 1,   y: y + 1 },
+        { x: x + 1,       y: y + h - 1 },
+        { x: x + w - 1,   y: y + h - 1 },
+        { x: x + w / 2,   y: y + h / 2 },
+        { x: x + w / 2,   y: y + 1 },
+        { x: x + w / 2,   y: y + h - 1 },
+        { x: x + 1,       y: y + h / 2 },
+        { x: x + w - 1,   y: y + h / 2 }
+      ];
+
+      return samples.every(p => pointInRoom(p.x, p.y));
+    }
+
+
+
+
+    function extendRoomWithRectangle(rect) {
+    // rect.x, rect.y, rect.w, rect.h - ביחידות "חדר" (פיקסלים של החדר)
+
+    const size = getRoomPixelSize(); // חדר נוכחי בפיקסלים (רוחב/גובה)
+
+    const rectLeft   = rect.x;
+    const rectRight  = rect.x + rect.w;
+    const rectTop    = rect.y;
+    const rectBottom = rect.y + rect.h;
+
+    // כמה להרחיב לכל כיוון (פיקסלים של החדר, לא של הקנבס)
+    let extraTopPx    = 0;
+    let extraBottomPx = 0;
+    let extraLeftPx   = 0;
+    let extraRightPx  = 0;
+
+    // הרחבה למעלה - רק אם המלבן חותך את קצה החדר העליון
+    if (rectTop < 0 && rectBottom > 0) {
+      extraTopPx = rectTop; // שלילי => החדר "נדחף" למטה
+    }
+
+    // הרחבה למטה
+    if (rectBottom > size.h && rectTop < size.h) {
+      extraBottomPx = rectBottom - size.h;
+    }
+
+    // הרחבה שמאלה
+    if (rectLeft < 0 && rectRight > 0) {
+      extraLeftPx = rectLeft; // שלילי => החדר "נדחף" ימינה
+    }
+
+    // הרחבה ימינה
+    if (rectRight > size.w && rectLeft < size.w) {
+      extraRightPx = rectRight - size.w;
+    }
+
+    // אם המלבן בכלל לא חותך שום קצה - לא עושים כלום
+    if (!extraTopPx && !extraBottomPx && !extraLeftPx && !extraRightPx) {
+      draw();
+      return;
+    }
+
+    // היסטוריה לפני שינוי
+    pushHistory();
+
+    // רוחב/גובה חדשים של החדר בפיקסלים חדר
+    const totalWidthPx =
+      size.w + Math.max(0, extraRightPx) + Math.abs(Math.min(0, extraLeftPx));
+    const totalHeightPx =
+      size.h + Math.max(0, extraBottomPx) + Math.abs(Math.min(0, extraTopPx));
+
+    // ממירים לס"מ לפי הסקייל
+    const newWidthCm  = totalWidthPx * room.cmPerPixel;
+    const newHeightCm = totalHeightPx * room.cmPerPixel;
+
+    room.widthCm  = newWidthCm;
+    room.heightCm = newHeightCm;
+
+    // מחשבים מחדש את הגודל החדש בפיקסלים חדר (אמור לחזור ל־totalWidthPx/totalHeightPx)
+    const newSize = getRoomPixelSize();
+    canvas.width  = Math.max(newSize.w + 200, 1400);
+    canvas.height = Math.max(newSize.h + 200, 900);
+
+    // מזיזים את הפאן כדי שהחדר יישאר פחות או יותר באותו מקום על המסך
+    panX -= extraLeftPx * zoom;
+    panY -= extraTopPx * zoom;
+
+    // מעדכנים שדות הטופס
+    roomWidthInput.value  = room.widthCm;
+    roomHeightInput.value = room.heightCm;
+
+    draw();
+    pushHistory();
+  }
+
+
+
+    function snapDoorToWall(item) {
+      if (!item.isDoor) return;
+
+      const size = getRoomPixelSize();
+
+      ensureSegments(item);
+      const seg = item.segments[0];
+
+      const lengthCm = item.doorLengthCm != null
+        ? item.doorLengthCm
+        : (seg.widthCm || seg.heightCm || 90);
+
+      item.doorLengthCm = lengthCm;
+
+      const lengthPx = lengthCm / room.cmPerPixel;
+      const thicknessPx = 6;
+
+      const cx = item.x + item.widthPx / 2;
+      const cy = item.y + item.heightPx / 2;
+
+      const dTop = Math.abs(cy - 0);
+      const dBottom = Math.abs(cy - size.h);
+      const dLeft = Math.abs(cx - 0);
+      const dRight = Math.abs(cx - size.w);
+
+      let edge = "top";
+      let min = dTop;
+      if (dBottom < min) { min = dBottom; edge = "bottom"; }
+      if (dLeft < min)   { min = dLeft;   edge = "left"; }
+      if (dRight < min)  { min = dRight;  edge = "right"; }
+
+      item.doorEdge = edge;
+
+      if (edge === "top" || edge === "bottom") {
+        item.widthPx = lengthPx;
+        item.heightPx = thicknessPx;
+        seg.widthPx = lengthPx;
+        seg.heightPx = thicknessPx;
+        seg.widthCm = lengthCm;
+        seg.heightCm = 0;
+
+        let newX = cx - lengthPx / 2;
+        newX = Math.max(0, Math.min(newX, size.w - lengthPx));
+        const newY = (edge === "top")
+          ? -thicknessPx / 2
+          : size.h - thicknessPx / 2;
+
+        item.x = newX;
+        item.y = newY;
+      } else {
+        item.widthPx = thicknessPx;
+        item.heightPx = lengthPx;
+        seg.widthPx = thicknessPx;
+        seg.heightPx = lengthPx;
+        seg.widthCm = 0;
+        seg.heightCm = lengthCm;
+
+        let newY = cy - lengthPx / 2;
+        newY = Math.max(0, Math.min(newY, size.h - lengthPx));
+
+        const newX = (edge === "left")
+          ? -thicknessPx / 2
+          : size.w - thicknessPx / 2;
+
+        item.x = newX;
+        item.y = newY;
+      }
+    }
+
+    function snapWindowToWall(item) {
+      if (!item.isWindow) return;
+
+      const size = getRoomPixelSize();
+
+      ensureSegments(item);
+      const seg = item.segments[0];
+
+      // אורך החלון בס"מ
+      const lengthCm = item.windowLengthCm != null
+        ? item.windowLengthCm
+        : (seg.widthCm || seg.heightCm || 120);
+
+      item.windowLengthCm = lengthCm;
+
+      const lengthPx = lengthCm / room.cmPerPixel;
+      const thicknessPx = 4; // חלון דק יותר מציור דלת
+
+      // מרכז נוכחי
+      const cx = item.x + item.widthPx / 2;
+      const cy = item.y + item.heightPx / 2;
+
+      const dTop = Math.abs(cy - 0);
+      const dBottom = Math.abs(cy - size.h);
+      const dLeft = Math.abs(cx - 0);
+      const dRight = Math.abs(cx - size.w);
+
+      let edge = "top";
+      let min = dTop;
+      if (dBottom < min) { min = dBottom; edge = "bottom"; }
+      if (dLeft < min)   { min = dLeft;   edge = "left"; }
+      if (dRight < min)  { min = dRight;  edge = "right"; }
+
+      item.windowEdge = edge;
+
+      if (edge === "top" || edge === "bottom") {
+        // חלון אופקי על קיר עליון/תחתון - כולו מחוץ לחדר
+        item.widthPx = lengthPx;
+        item.heightPx = thicknessPx;
+        seg.widthPx = lengthPx;
+        seg.heightPx = thicknessPx;
+        seg.widthCm = lengthCm;
+        seg.heightCm = 0;
+
+        let newX = cx - lengthPx / 2;
+        newX = Math.max(0, Math.min(newX, size.w - lengthPx));
+
+        const newY = (edge === "top")
+          ? -thicknessPx          // מחוץ לחדר
+          : size.h;               // מחוץ לחדר בצד התחתון
+
+        item.x = newX;
+        item.y = newY;
+      } else {
+        // חלון אנכי על קיר שמאל/ימין - כולו מחוץ לחדר
+        item.widthPx = thicknessPx;
+        item.heightPx = lengthPx;
+        seg.widthPx = thicknessPx;
+        seg.heightPx = lengthPx;
+        seg.widthCm = 0;
+        seg.heightCm = lengthCm;
+
+        let newY = cy - lengthPx / 2;
+        newY = Math.max(0, Math.min(newY, size.h - lengthPx));
+
+        const newX = (edge === "left")
+          ? -thicknessPx          // מחוץ לחדר
+          : size.w;               // מחוץ לחדר בצד הימני
+
+        item.x = newX;
+        item.y = newY;
+      }
+    }
+
+
+    function resizeCanvasToRoom() {
+      let wPx, hPx;
+
+      if (room.segments && room.segments.length) {
+        let maxX = 0;
+        let maxY = 0;
+        room.segments.forEach(seg => {
+          const sx2 = seg.x + seg.widthPx;
+          const sy2 = seg.y + seg.heightPx;
+          if (sx2 > maxX) maxX = sx2;
+          if (sy2 > maxY) maxY = sy2;
+        });
+        wPx = maxX;
+        hPx = maxY;
+      } else {
+        wPx = room.widthCm / room.cmPerPixel;
+        hPx = room.heightCm / room.cmPerPixel;
+      }
+
+      canvas.width  = Math.max(wPx + 200, 1400);
+      canvas.height = Math.max(hPx + 200, 900);
+    }
+
+
+    function updateInfoLabels() {
+      const effectiveCmPerPixel = room.cmPerPixel / zoom;
+      scaleInfo.textContent = `Effective scale: 1 pixel ≈ ${effectiveCmPerPixel.toFixed(2)} cm | Grid: ${formatDim(room.cellSizeCm)}`;
+      roomInfo.textContent = `Room: ${formatDim(room.widthCm)} × ${formatDim(room.heightCm)}`;
+    }
+
+    function applyRoomChanges() {
+      room.widthCm  = Math.max(50, parseFloat(roomWidthInput.value)  || 400);
+      room.heightCm = Math.max(50, parseFloat(roomHeightInput.value) || 300);
+      room.cmPerPixel  = Math.max(0.1, parseFloat(cmPerPixelInput.value)  || 0.8);
+      room.cellSizeCm  = Math.max(5,   parseFloat(cellSizeCmInput.value)  || 50);
+
+      // גודל החדר בפיקסלים לפי המידות
+      const wPx = room.widthCm / room.cmPerPixel;
+      const hPx = room.heightCm / room.cmPerPixel;
+
+      // כשמשנים מידות ידנית - החדר חוזר להיות מלבן יחיד
+      room.segments = [{
+        x: 0,
+        y: 0,
+        widthPx: wPx,
+        heightPx: hPx
+      }];
+
+      canvas.width  = Math.max(wPx + 200, 1400);
+      canvas.height = Math.max(hPx + 200, 900);
+
+      zoom = 1;
+      panX = (canvas.width - wPx) / 2;
+      panY = (canvas.height - hPx) / 2;
+
+      draw();
+    }
+
+
+    function resetView() {
+      pushHistory();
+
+      // מימדי חדר ברירת מחדל
+      room.widthCm = 400;
+      room.heightCm = 300;
+      room.cmPerPixel = 0.8;
+      room.cellSizeCm = 50;
+
+      // הכי חשוב - לנקות את צורת החדר המורחבת
+      room.segments = null; // או: room.segments = [];
+
+      roomWidthInput.value = room.widthCm;
+      roomHeightInput.value = room.heightCm;
+      cmPerPixelInput.value = room.cmPerPixel;
+      cellSizeCmInput.value = room.cellSizeCm;
+
+      furniture = [];
+      selectedId = null;
+      zoom = 1;
+      panX = 0;
+      panY = 0;
+
+      applyRoomChanges();
+      pushHistory();
+    }
+
+    function getItemSizeLabel(item) {
+      ensureSegments(item);
+      if (item.segments.length === 1) {
+        const s = item.segments[0];
+        return `${formatDim(s.widthCm)} × ${formatDim(s.heightCm)}`;
+      }
+      const parts = item.segments.map(s => `${s.widthCm.toFixed(0)}×${s.heightCm.toFixed(0)}`);
+      return parts.map(p => p + ' cm').join(" + ");
+    }
+
+    function addFurniture() {
+      pushHistory();
+
+      const name = fNameInput.value.trim() || `Item ${nextId}`;
+      const widthCm = parseFloat(fWidthInput.value) || 100;
+      const heightCm = parseFloat(fHeightInput.value) || 50;
+
+      const size = getRoomPixelSize();
+      const widthPx = widthCm / room.cmPerPixel;
+      const heightPx = heightCm / room.cmPerPixel;
+
+      const color = colorPalette[(nextId - 1) % colorPalette.length];
+
+      const item = {
+        id: nextId++,
+        name,
+        x: 0,
+        y: 0,
+        widthPx,
+        heightPx,
+        color,
+        segments: [{
+          x: 0,
+          y: 0,
+          widthPx,
+          heightPx,
+          widthCm: widthCm,
+          heightCm: heightCm
+        }]
+      };
+
+      const margin = 10;
+      const step = 10;
+      let placed = false;
+
+      for (let y = margin; y <= size.h - heightPx - margin && !placed; y += step) {
+        for (let x = margin; x <= size.w - widthPx - margin && !placed; x += step) {
+          if (
+            !collidesWithOthers(item, x, y) &&
+            rectFullyInsideRoom(x, y, widthPx, heightPx)
+          ) {
+            item.x = x;
+            item.y = y;
+            placed = true;
+          }
+        }
+      }
+
+
+      if (!placed) {
+        alert("No free space in the room to place this item without overlapping others.");
+        nextId -= 1;
+        restoreSnapshot(historyIndex);
+        return;
+      }
+
+      furniture.push(item);
+      selectedId = item.id;
+      refreshSelectionUI();
+      draw();
+    }
+
+    function addDoor() {
+      pushHistory();
+
+      const size = getRoomPixelSize();
+
+      const doorLengthCm = 90;
+      const doorThicknessCm = 10;
+
+      const widthPx = doorLengthCm / room.cmPerPixel;
+      const heightPx = doorThicknessCm / room.cmPerPixel;
+
+      const id = nextId++;
+      const item = {
+        id,
+        isDoor: true,
+        name: `Door ${id}`,
+        x: (size.w - widthPx) / 2,
+        y: 0,
+        widthPx,
+        heightPx,
+        color: "#a3d9ff",
+        doorLengthCm: doorLengthCm,
+        segments: [{
+          x: 0,
+          y: 0,
+          widthPx,
+          heightPx,
+          widthCm: doorLengthCm,
+          heightCm: doorThicknessCm
+        }]
+      };
+
+      snapDoorToWall(item);
+
+      furniture.push(item);
+      selectedId = item.id;
+      refreshSelectionUI();
+      draw();
+    }
+
+    function addWindow() {
+      pushHistory();
+
+      const size = getRoomPixelSize();
+
+      // ברירת מחדל - חלון ממוצע
+      const windowLengthCm = 120;   // אורך חלון סטנדרטי
+      const windowThicknessCm = 8;  // "עובי" החלון בציור
+
+      const widthPx = windowLengthCm / room.cmPerPixel;
+      const heightPx = windowThicknessCm / room.cmPerPixel;
+
+      const id = nextId++;
+      const item = {
+        id,
+        isWindow: true,
+        name: `Window ${id}`,
+        x: (size.w - widthPx) / 2, // מיקום זמני במרכז - מיד נצמיד לקיר
+        y: 0,
+        widthPx,
+        heightPx,
+        color: "#ffd27f",          // צבע מובחן לחלון
+        windowLengthCm: windowLengthCm,
+        segments: [{
+          x: 0,
+          y: 0,
+          widthPx,
+          heightPx,
+          widthCm: windowLengthCm,
+          heightCm: windowThicknessCm
+        }]
+      };
+
+      // להצמיד לחלון לקיר הקרוב מבחוץ
+      snapWindowToWall(item);
+
+      furniture.push(item);
+      selectedId = item.id;
+      refreshSelectionUI();
+      draw();
+    }
+
+
+    function drawGrid() {
+      const cellPx = room.cellSizeCm / room.cmPerPixel;
+
+      // אם אין סגמנטים - נבנה אחד מהמידות הקיימות
+      const segments = (room.segments && room.segments.length)
+        ? room.segments
+        : [{
+            x: 0,
+            y: 0,
+            widthPx: room.widthCm / room.cmPerPixel,
+            heightPx: room.heightCm / room.cmPerPixel
+          }];
+
+      // רקע לבן/בהיר בתוך צורת החדר
+      ctx.fillStyle = "#fafafa";
+      segments.forEach(seg => {
+        ctx.fillRect(seg.x, seg.y, seg.widthPx, seg.heightPx);
+      });
+
+      // מוצאים גבול מקסימלי לרוחב וגובה כדי לדעת איפה לעצור את הלולאות
+      let maxX = 0;
+      let maxY = 0;
+      segments.forEach(seg => {
+        const sx2 = seg.x + seg.widthPx;
+        const sy2 = seg.y + seg.heightPx;
+        if (sx2 > maxX) maxX = sx2;
+        if (sy2 > maxY) maxY = sy2;
+      });
+
+      // קווי רשת - מצוירים רק בתוך הסגמנטים (לא על האפור מסביב)
+      ctx.strokeStyle = "#e5e5e5";
+      ctx.lineWidth = 1;
+
+      // קווים אנכיים
+      for (let x = 0; x <= maxX; x += cellPx) {
+        segments.forEach(seg => {
+          if (x >= seg.x && x <= seg.x + seg.widthPx) {
+            const y1 = seg.y;
+            const y2 = seg.y + seg.heightPx;
+            ctx.beginPath();
+            ctx.moveTo(x + 0.5, y1);
+            ctx.lineTo(x + 0.5, y2);
+            ctx.stroke();
+          }
+        });
+      }
+
+      // קווים אופקיים
+      for (let y = 0; y <= maxY; y += cellPx) {
+        segments.forEach(seg => {
+          if (y >= seg.y && y <= seg.y + seg.heightPx) {
+            const x1 = seg.x;
+            const x2 = seg.x + seg.widthPx;
+            ctx.beginPath();
+            ctx.moveTo(x1, y + 0.5);
+            ctx.lineTo(x2, y + 0.5);
+            ctx.stroke();
+          }
+        });
+      }
+
+      // מסגרת חיצונית אחת לצורה המאוחדת
+      drawUnifiedBorder(segments);
+    }
+
+    function drawUnifiedBorder(segments) {
+      if (!segments || !segments.length) return;
+
+      // אוסף את כל קווי ה-X וה-Y של קצוות הסגמנטים
+      const xs = [];
+      const ys = [];
+      segments.forEach(seg => {
+        xs.push(seg.x, seg.x + seg.widthPx);
+        ys.push(seg.y, seg.y + seg.heightPx);
+      });
+
+      xs.sort((a, b) => a - b);
+      ys.sort((a, b) => a - b);
+
+      // הסרה של כפילויות (באפסילון קטן)
+      function uniq(arr) {
+        const res = [];
+        const eps = 0.01;
+        arr.forEach(v => {
+          if (!res.length || Math.abs(res[res.length - 1] - v) > eps) {
+            res.push(v);
+          }
+        });
+        return res;
+      }
+
+      const ux = uniq(xs);
+      const uy = uniq(ys);
+
+      const nx = ux.length - 1;
+      const ny = uy.length - 1;
+      if (nx <= 0 || ny <= 0) return;
+
+      // inside[j][i] - האם התא בין ux[i]→ux[i+1], uy[j]→uy[j+1] נמצא בתוך צורת החדר
+      const inside = [];
+      for (let j = 0; j < ny; j++) {
+        inside[j] = [];
+        const yMid = (uy[j] + uy[j + 1]) / 2;
+        for (let i = 0; i < nx; i++) {
+          const xMid = (ux[i] + ux[i + 1]) / 2;
+          let inCell = false;
+          for (const seg of segments) {
+            if (
+              xMid >= seg.x &&
+              xMid <= seg.x + seg.widthPx &&
+              yMid >= seg.y &&
+              yMid <= seg.y + seg.heightPx
+            ) {
+              inCell = true;
+              break;
+            }
+          }
+          inside[j][i] = inCell;
+        }
+      }
+
+      ctx.save();
+      ctx.strokeStyle = "#999";
+      ctx.lineWidth = 2;
+
+      // עבור כל תא "פנימי" - מציירים קווי מסגרת רק במקום שיש מעבר מפנים לחוץ
+      for (let j = 0; j < ny; j++) {
+        for (let i = 0; i < nx; i++) {
+          if (!inside[j][i]) continue;
+
+          const x1 = ux[i];
+          const x2 = ux[i + 1];
+          const y1 = uy[j];
+          const y2 = uy[j + 1];
+
+          // למעלה
+          if (j === 0 || !inside[j - 1][i]) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y1);
+            ctx.stroke();
+          }
+          // למטה
+          if (j === ny - 1 || !inside[j + 1][i]) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y2);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+          }
+          // שמאל
+          if (i === 0 || !inside[j][i - 1]) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x1, y2);
+            ctx.stroke();
+          }
+          // ימין
+          if (i === nx - 1 || !inside[j][i + 1]) {
+            ctx.beginPath();
+            ctx.moveTo(x2, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+          }
+        }
+      }
+
+      ctx.restore();
+    }
+
+
+
+
+
+    function drawRoomSegments() {
+      if (!roomSegments.length) return;
+
+      ctx.save();
+      ctx.fillStyle = "#f0f7ff";
+      ctx.strokeStyle = "#b0c4de";
+      ctx.lineWidth = 1;
+      // draw distance label if present
+      if (liveDistanceLabel) {
+        const dText = liveDistanceLabel.text;
+        const dxScreen = panX + liveDistanceLabel.x * zoom;
+        const dyScreen = panY + liveDistanceLabel.y * zoom;
+        const dMetrics = ctx.measureText(dText);
+        const dBoxWidth = dMetrics.width + padding * 2;
+        const dBoxHeight = fontSize + padding * 2;
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        ctx.fillRect(dxScreen - dBoxWidth / 2, dyScreen - dBoxHeight, dBoxWidth, dBoxHeight);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(dText, dxScreen - dMetrics.width / 2, dyScreen - padding);
+      }
+
+      ctx.font = "11px Arial";
+      ctx.fillStyle = "#333";
+
+      roomSegments.forEach(seg => {
+        ctx.fillStyle = "#f0f7ff";
+        ctx.fillRect(seg.x, seg.y, seg.w, seg.h);
+        ctx.strokeStyle = "#b0c4de";
+        ctx.strokeRect(seg.x, seg.y, seg.w, seg.h);
+
+        const label = `${formatDim(seg.widthCm)} × ${formatDim(seg.heightCm)}`;
+        const textWidth = ctx.measureText(label).width;
+        const tx = seg.x + (seg.w - textWidth) / 2;
+        const ty = seg.y + 12;
+        ctx.fillStyle = "#333";
+        ctx.fillText(label, tx, ty);
+      });
+
+      ctx.restore();
+    }
+
+
+    function drawLegendAndDimensions() {
+      const size = getRoomPixelSize();
+      const legendSquare = Math.min(room.cellSizeCm / room.cmPerPixel, 60);
+
+      const legendWidth = legendSquare + 50;
+      const legendHeight = legendSquare + 24;
+
+      ctx.save();
+      const legendX = -legendWidth - 10;
+      const legendY = 0;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(legendX, legendY, legendWidth, legendHeight);
+      ctx.strokeStyle = "#ccc";
+      ctx.strokeRect(legendX, legendY, legendWidth, legendHeight);
+
+      ctx.strokeStyle = "#666";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(legendX + 6, legendY + 6, legendSquare, legendSquare);
+      ctx.fillStyle = "#333";
+      ctx.font = "11px Arial";
+      const cellLabel = `${room.cellSizeCm.toFixed(0)}×${room.cellSizeCm.toFixed(0)} cm`;
+      ctx.fillText(cellLabel, legendX + 6, legendY + 6 + legendSquare + 12);
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = "#333";
+      ctx.font = "12px Arial";
+
+      const widthLabel = `${formatDim(room.widthCm)}`;
+      const widthTextWidth = ctx.measureText(widthLabel).width;
+      ctx.fillText(widthLabel, (size.w - widthTextWidth) / 2, size.h + 14);
+
+      ctx.save();
+      ctx.translate(-12, size.h / 2);
+      ctx.rotate(-Math.PI / 2);
+      const heightLabel = `${formatDim(room.heightCm)}`;
+      const heightTextWidth = ctx.measureText(heightLabel).width;
+      ctx.fillText(heightLabel, -heightTextWidth / 2, 0);
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    function getItemBounding(item) {
+      ensureSegments(item);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      item.segments.forEach(seg => {
+        minX = Math.min(minX, seg.x);
+        minY = Math.min(minY, seg.y);
+        maxX = Math.max(maxX, seg.x + seg.widthPx);
+        maxY = Math.max(maxY, seg.y + seg.heightPx);
+      });
+      item.widthPx = maxX - minX;
+      item.heightPx = maxY - minY;
+      return { widthPx: item.widthPx, heightPx: item.heightPx };
+    }
+
+    function getDoorClearanceRects() {
+      const size = getRoomPixelSize();
+      const clearanceDepthCm = 80;
+      const clearanceDepthPx = clearanceDepthCm / room.cmPerPixel;
+
+      const rects = [];
+
+      furniture.forEach(door => {
+        if (!door.isDoor) return;
+        ensureSegments(door);
+        const seg = door.segments[0];
+        const edge = door.doorEdge || "bottom";
+
+        if (edge === "bottom") {
+          rects.push({
+            x: door.x,
+            y: size.h - clearanceDepthPx,
+            w: seg.widthPx,
+            h: clearanceDepthPx
+          });
+        } else if (edge === "top") {
+          rects.push({
+            x: door.x,
+            y: 0,
+            w: seg.widthPx,
+            h: clearanceDepthPx
+          });
+        } else if (edge === "left") {
+          rects.push({
+            x: 0,
+            y: door.y,
+            w: clearanceDepthPx,
+            h: seg.heightPx
+          });
+        } else if (edge === "right") {
+          rects.push({
+            x: size.w - clearanceDepthPx,
+            y: door.y,
+            w: clearanceDepthPx,
+            h: seg.heightPx
+          });
+        }
+      });
+
+      return rects;
+    }
+
+    function isDoorBlocked() {
+      const doorRects = getDoorClearanceRects();
+      if (!doorRects.length) return false;
+
+      for (const item of furniture) {
+        if (item.isDoor) continue;
+        ensureSegments(item);
+        for (const seg of item.segments) {
+          const ax = item.x + seg.x;
+          const ay = item.y + seg.y;
+          const aw = seg.widthPx;
+          const ah = seg.heightPx;
+
+          for (const dr of doorRects) {
+            if (segmentsOverlap(ax, ay, aw, ah, dr.x, dr.y, dr.w, dr.h)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function rotateItem90InPlace(item) {
+      ensureSegments(item);
+
+      const oldWidthPx = item.widthPx;
+      const oldHeightPx = item.heightPx;
+
+      item.segments.forEach(seg => {
+        const sx = seg.x;
+        const sy = seg.y;
+        const sw = seg.widthPx;
+        const sh = seg.heightPx;
+
+        seg.x = oldHeightPx - (sy + sh);
+        seg.y = sx;
+        seg.widthPx = sh;
+        seg.heightPx = sw;
+
+        seg.widthCm = seg.widthPx * room.cmPerPixel;
+        seg.heightCm = seg.heightPx * room.cmPerPixel;
+      });
+
+      item.widthPx = oldHeightPx;
+      item.heightPx = oldWidthPx;
+
+      const size = getRoomPixelSize();
+
+      if (!item.isDoor && !item.isWindow) {
+        // רהיטים רגילים - לשמור בתוך החדר
+        if (item.x + item.widthPx > size.w) item.x = size.w - item.widthPx;
+        if (item.y + item.heightPx > size.h) item.y = size.h - item.heightPx;
+      } else {
+        // דלת/חלון - אחרי סיבוב מצמידים מחדש לקיר
+        if (item.isDoor) {
+          snapDoorToWall(item);
+        } else {
+          snapWindowToWall(item);
+        }
+      }
+    }
+
+    function drawFurniture() {
+      furniture.forEach(item => {
+        ensureSegments(item);
+        getItemBounding(item);
+
+        ctx.save();
+
+        const baseColor = item.isDoor
+          ? "#a3d9ff"
+          : item.isWindow
+            ? "#ffd27f"
+            : item.color;
+
+        ctx.fillStyle = baseColor;
+
+        item.segments.forEach(seg => {
+          const sx = item.x + seg.x;
+          const sy = item.y + seg.y;
+          ctx.fillRect(sx, sy, seg.widthPx, seg.heightPx);
+          ctx.strokeStyle = "#555";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sx, sy, seg.widthPx, seg.heightPx);
+        });
+
+        const isSelected = item.id === selectedId;
+        if (isSelected) {
+          ctx.strokeStyle = "#007bff";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(item.x - 2, item.y - 2, item.widthPx + 4, item.heightPx + 4);
+        }
+
+        item.segments.forEach(seg => {
+          const sx = item.x + seg.x;
+          const sy = item.y + seg.y;
+
+          const segLabel = (seg.label && seg.label.trim()) || item.name;
+
+          // ======== DOOR/WINDOW LABEL LOGIC =========
+          if (item.isDoor || item.isWindow) {
+            // אורך הדלת/חלון - מימד יחיד שנציג
+            const lengthCm = item.isDoor
+              ? (item.doorLengthCm != null
+                  ? item.doorLengthCm
+                  : (seg.widthCm || seg.heightCm || 0))
+              : (item.windowLengthCm != null
+                  ? item.windowLengthCm
+                  : (seg.widthCm || seg.heightCm || 0));
+
+            const lengthText = `${formatDim(lengthCm)}`;
+
+            // שם מחוץ לחדר - לפי הקיר
+            let nameFont = 12;
+            ctx.font = `${nameFont}px Arial`;
+            let nameWidth = ctx.measureText(segLabel).width;
+            const maxNameWidth = Math.max(10, seg.widthPx - 4, seg.heightPx - 4);
+
+            while (nameFont > 8 && nameWidth > maxNameWidth) {
+              nameFont -= 1;
+              ctx.font = `${nameFont}px Arial`;
+              nameWidth = ctx.measureText(segLabel).width;
+            }
+
+            if (nameWidth <= maxNameWidth) {
+              const edge = item.isDoor ? item.doorEdge : item.windowEdge;  // top/bottom/left/right
+              let nx;
+              let ny;
+
+              if (edge === "top") {
+                // מחוץ לחדר למעלה
+                nx = sx + (seg.widthPx - nameWidth) / 2;
+                ny = sy - 10;
+              } else if (edge === "bottom") {
+                // מחוץ לחדר למטה
+                nx = sx + (seg.widthPx - nameWidth) / 2;
+                ny = sy + seg.heightPx + nameFont + 2;
+              } else if (edge === "left") {
+                // מחוץ לחדר בצד שמאל
+                nx = sx - nameWidth - 4;
+                ny = sy + seg.heightPx / 2 + nameFont / 2;
+              } else if (edge === "right") {
+                // מחוץ לחדר בצד ימין
+                nx = sx + seg.widthPx + 4;
+                ny = sy + seg.heightPx / 2 + nameFont / 2;
+              } else {
+                // fallback - אם משום מה אין edge
+                nx = sx + (seg.widthPx - nameWidth) / 2;
+                ny = sy - 4;
+              }
+
+              ctx.fillStyle = "#333";
+              ctx.fillText(segLabel, nx, ny);
+            }
+
+            // אורך בתחתית
+            let f = 11;
+            ctx.font = `${f}px Arial`;
+            let textWidth = ctx.measureText(lengthText).width;
+            const maxLenWidth = Math.max(10, seg.widthPx - 4, seg.heightPx - 4);
+            while (f > 7 && textWidth > maxLenWidth) {
+              f -= 1;
+              ctx.font = `${f}px Arial`;
+              textWidth = ctx.measureText(lengthText).width;
+            }
+
+            const tx = sx + (seg.widthPx - textWidth) / 2;
+            const ty = sy + seg.heightPx - 3;
+            ctx.fillStyle = "#333";
+            ctx.fillText(lengthText, tx, ty);
+
+            // לא מציירים רוחב/גובה רגילים לדלת/חלון
+            return;
+          }
+          // ======== END DOOR/WINDOW LOGIC =========
+
+
+          const widthText = `${formatDim(seg.widthCm)}`;
+          const heightText = `${formatDim(seg.heightCm)}`;
+
+          let nameFont = 12;
+          ctx.font = `${nameFont}px Arial`;
+          let nameWidth = ctx.measureText(segLabel).width;
+          const maxNameWidth = Math.max(10, seg.widthPx - 4);
+
+          while (nameFont > 8 && nameWidth > maxNameWidth) {
+            nameFont -= 1;
+            ctx.font = `${nameFont}px Arial`;
+            nameWidth = ctx.measureText(segLabel).width;
+          }
+
+          if (nameWidth <= maxNameWidth) {
+            const nx = sx + (seg.widthPx - nameWidth) / 2;
+            const ny = sy + nameFont + 2;
+            ctx.fillStyle = "#333";
+            ctx.fillText(segLabel, nx, ny);
+          }
+
+          let wFont = 11;
+          ctx.font = `${wFont}px Arial`;
+          let wTextWidth = ctx.measureText(widthText).width;
+          const maxWTextWidth = Math.max(10, seg.widthPx - 4);
+
+          while (wFont > 7 && wTextWidth > maxWTextWidth) {
+            wFont -= 1;
+            ctx.font = `${wFont}px Arial`;
+            wTextWidth = ctx.measureText(widthText).width;
+          }
+
+          if (wTextWidth <= maxWTextWidth) {
+            const wx = sx + (seg.widthPx - wTextWidth) / 2;
+            const wy = sy + seg.heightPx - 3;
+            ctx.fillStyle = "#333";
+            ctx.fillText(widthText, wx, wy);
+          }
+
+          let hFont = 11;
+          ctx.font = `${hFont}px Arial`;
+          let hTextWidth = ctx.measureText(heightText).width;
+          const maxHTextHeight = Math.max(10, seg.heightPx - 4);
+
+          while (hFont > 7 && hTextWidth > maxHTextHeight) {
+            hFont -= 1;
+            ctx.font = `${hFont}px Arial`;
+            hTextWidth = ctx.measureText(heightText).width;
+          }
+
+          if (hTextWidth <= maxHTextHeight) {
+            ctx.save();
+            const centerY = sy + seg.heightPx / 2;
+            ctx.translate(sx + 10, centerY);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillStyle = "#333";
+            ctx.fillText(heightText, -hTextWidth / 2, 0);
+            ctx.restore();
+          }
+        });
+
+        ctx.restore();
+      });
+    }
+
+    // Draw live preview rectangle (during drag) on top of furniture but below selection
+    function drawLivePreview() {
+      if (!livePreviewRect) return;
+      ctx.save();
+      ctx.setLineDash([4,4]);
+      ctx.lineWidth = 2 / zoom;
+      if (livePreviewRect.blocked) {
+        ctx.strokeStyle = 'rgba(220,40,40,0.95)';
+        ctx.fillStyle = 'rgba(220,40,40,0.12)';
+      } else {
+        ctx.strokeStyle = 'rgba(0,123,255,0.95)';
+        ctx.fillStyle = 'rgba(0,123,255,0.08)';
+      }
+      ctx.fillRect(livePreviewRect.x, livePreviewRect.y, livePreviewRect.w, livePreviewRect.h);
+      ctx.strokeRect(livePreviewRect.x, livePreviewRect.y, livePreviewRect.w, livePreviewRect.h);
+      ctx.restore();
+    }
+
+    function drawSelectionRectangle() {
+      if (!isDrawingItem || !currentDrawRect) return;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(0,123,255,0.9)";
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2 / zoom;
+      ctx.strokeRect(
+        currentDrawRect.x,
+        currentDrawRect.y,
+        currentDrawRect.w,
+        currentDrawRect.h
+      );
+      ctx.restore();
+
+      // חישוב מידות בסנטימטרים לתווית החיה
+      const widthCm = currentDrawRect.w * room.cmPerPixel;
+      const heightCm = currentDrawRect.h * room.cmPerPixel;
+
+      liveSizeLabel = {
+        x: currentDrawRect.x + currentDrawRect.w / 2,
+        y: currentDrawRect.y, // מעל המלבן
+        text: `${formatDim(widthCm)} × ${formatDim(heightCm)}`
+      };
+    }
+
+
+    function drawLiveSizeLabel() {
+      if (!liveSizeLabel) return;
+
+      const text = liveSizeLabel.text;
+
+      // המיקום נשמר ביחידות חדר - צריך להמיר למסך
+      const xScreen = panX + liveSizeLabel.x * zoom;
+      const yScreen = panY + liveSizeLabel.y * zoom;
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // מציירים במסך, בלי זום
+
+      const fontSize = 12;
+      const padding = 4;
+
+      ctx.font = `${fontSize}px Arial`;
+      const metrics = ctx.measureText(text);
+      const boxWidth = metrics.width + padding * 2;
+      const boxHeight = fontSize + padding * 2;
+
+      // רקע כהה
+      ctx.fillStyle = "rgba(0,0,0,0.75)";
+      ctx.fillRect(
+        xScreen - boxWidth / 2,
+        yScreen - boxHeight,
+        boxWidth,
+        boxHeight
+      );
+
+      // טקסט לבן
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(text, xScreen - metrics.width / 2, yScreen - padding);
+
+      ctx.restore();
+    }
+
+
+    function draw() {
+      // איפוס טרנספורמציות ורקע
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#e9e9e9";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // ציור החדר בזום ופאן
+      ctx.save();
+      ctx.translate(panX, panY);
+      ctx.scale(zoom, zoom);
+
+      drawGrid();
+      drawRoomSegments();     // חדש - מתחת לגריד, לפני רהיטים
+      drawFurniture();
+      drawLivePreview();
+      drawSelectionRectangle();
+      drawLegendAndDimensions();
+
+      ctx.restore();
+
+      // את התווית מציירים *אחרי* restore, במערכת מסך
+      drawLiveSizeLabel();
+
+      updateInfoLabels();
+    }
+
+    function getExportFileName(defaultBase) {
+      const raw = (exportNameInput && exportNameInput.value || "").trim();
+      const base = raw || defaultBase || "room_layout";
+
+      // מנקה תווים בעייתיים בשם הקובץ
+      return base.replace(/[^a-z0-9_\-א-ת]/gi, "_");
+    }
+
+    function exportAsPng() {
+      const filename = getExportFileName("room_layout");
+      // דואג שהקנבס מעודכן לפני צילום
+      draw();
+
+      const dataUrl = canvas.toDataURL("image/png");
+
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename + ".png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function exportAsPdf() {
+      if (!window.jspdf) {
+        alert("PDF export is not available (jsPDF not loaded).");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const filename = getExportFileName("room_layout");
+
+      // דואג שהקנבס מעודכן לפני צילום
+      draw();
+      const dataUrl = canvas.toDataURL("image/png");
+
+      // יוצרים PDF אופקי A4 בנקודות
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4"
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      // התאמת התמונה לגודל הדף עם שמירת יחס
+      const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+
+      const renderWidth = imgWidth * ratio;
+      const renderHeight = imgHeight * ratio;
+
+      const x = (pageWidth - renderWidth) / 2;
+      const y = (pageHeight - renderHeight) / 2;
+
+      pdf.addImage(dataUrl, "PNG", x, y, renderWidth, renderHeight);
+      pdf.save(filename + ".pdf");
+    }
+
+    function hitTestRoom(xRoom, yRoom) {
+      for (let i = furniture.length - 1; i >= 0; i -= 1) {
+        const item = furniture[i];
+        ensureSegments(item);
+        if (
+          xRoom >= item.x &&
+          xRoom <= item.x + item.widthPx &&
+          yRoom >= item.y &&
+          yRoom <= item.y + item.heightPx
+        ) {
+          for (const seg of item.segments) {
+            const sx = item.x + seg.x;
+            const sy = item.y + seg.y;
+            if (
+              xRoom >= sx &&
+              xRoom <= sx + seg.widthPx &&
+              yRoom >= sy &&
+              yRoom <= sy + seg.heightPx
+            ) {
+              return item;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function screenToRoom(e) {
+      const rect = canvas.getBoundingClientRect();
+      const xScreen = e.clientX - rect.left;
+      const yScreen = e.clientY - rect.top;
+      const xRoom = (xScreen - panX) / zoom;
+      const yRoom = (yScreen - panY) / zoom;
+      return { xScreen, yScreen, xRoom, yRoom };
+    }
+
+    function segmentsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+      return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    function itemsOverlapAtPosition(item, newX, newY, other) {
+      ensureSegments(item);
+      ensureSegments(other);
+      for (const segA of item.segments) {
+        const ax = newX + segA.x;
+        const ay = newY + segA.y;
+        const aw = segA.widthPx;
+        const ah = segA.heightPx;
+        for (const segB of other.segments) {
+          const bx = other.x + segB.x;
+          const by = other.y + segB.y;
+          const bw = segB.widthPx;
+          const bh = segB.heightPx;
+          if (segmentsOverlap(ax, ay, aw, ah, bx, by, bw, bh)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+      function collidesWithOthers(item, newX, newY) {
+        // מצב עיצוב חופשי - אין חפיפה
+        if (allowOverlap) return false;
+
+        // דלתות וחלונות - לא נחשבים כ"חפץ" שחוסם
+        if (item.isDoor || item.isWindow) return false;
+
+        return furniture.some(other =>
+          other.id !== item.id &&
+          !other.isDoor &&        // לא בודקים חפיפה מול דלתות
+          !other.isWindow &&      // וגם לא מול חלונות
+          itemsOverlapAtPosition(item, newX, newY, other)
+        );
+      }
+
+      function onMouseDown(e) {
+        try { if (e && e.preventDefault) e.preventDefault(); } catch (err) {}
+        const { xScreen, xRoom, yRoom } = screenToRoom(e);
+        const size = getRoomPixelSize();
+
+        // ציור רהיטים רגיל - חייב להיות בתוך החדר
+        if (drawMode && !roomDesignMode) {
+          if (xRoom < 0 || yRoom < 0 || xRoom > size.w || yRoom > size.h) return;
+          pushHistory();
+          isDrawingItem = true;
+          currentDrawRect = { x: xRoom, y: yRoom, w: 0, h: 0 };
+          drawStartRoomX = xRoom;
+          drawStartRoomY = yRoom;
+          return;
+        }
+
+        // מצב Room design - מותר להתחיל בכל מקום, גם מחוץ לחדר
+        if (roomDesignMode) {
+          pushHistory();
+          isDrawingItem = true;
+          currentDrawRect = { x: xRoom, y: yRoom, w: 0, h: 0 };
+          drawStartRoomX = xRoom;
+          drawStartRoomY = yRoom;
+          return;
+        }
+
+
+      const item = hitTestRoom(xRoom, yRoom);
+      if (item) {
+        pushHistory();
+        selectedId = item.id;
+        isDraggingItem = true;
+        dragStarted = true;
+        isPanningView = false;
+        dragOffsetX = xRoom - item.x;
+        dragOffsetY = yRoom - item.y;
+        refreshSelectionUI();
+        draw();
+      } else {
+        selectedId = null;
+        isDraggingItem = false;
+        refreshSelectionUI();
+        draw();
+
+        isPanningView = true;
+        panStartX = xScreen;
+        panStartY = yScreenRelative(e);
+        panStartOffsetX = panX;
+        panStartOffsetY = panY;
+        canvasScroll.classList.add("grabbing");
+      }
+      // Capture pointer to continue receiving pointer events during drag (when supported)
+      try { if (e.pointerId != null) canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+
+    function yScreenRelative(e) {
+      const rect = canvas.getBoundingClientRect();
+      return e.clientY - rect.top;
+    }
+
+    function onMouseMove(e) {
+      try { if (e && e.preventDefault) e.preventDefault(); } catch (err) {}
+      if (isDrawingItem && (drawMode || roomDesignMode)) {
+        const { xRoom, yRoom } = screenToRoom(e);
+        const size = getRoomPixelSize();
+
+        let x2 = xRoom;
+        let y2 = yRoom;
+
+        // ברהיטים רגילים אנחנו עדיין מקלמפים לתוך החדר
+        if (drawMode && !roomDesignMode) {
+          x2 = Math.max(0, Math.min(x2, size.w));
+          y2 = Math.max(0, Math.min(y2, size.h));
+        }
+
+        // Snap drawing coordinates to grid
+        const cellPx = room.cellSizeCm / room.cmPerPixel;
+        const x1 = snapToGridPx(drawStartRoomX);
+        const y1 = snapToGridPx(drawStartRoomY);
+        const x2s = snapToGridPx(x2);
+        const y2s = snapToGridPx(y2);
+        const rectX = Math.min(x1, x2s);
+        const rectY = Math.min(y1, y2s);
+        const rectW = Math.abs(x2s - x1);
+        const rectH = Math.abs(y2s - y1);
+
+        currentDrawRect = { x: rectX, y: rectY, w: rectW, h: rectH };
+        draw();
+        return;
+      }
+
+
+        if (isDraggingItem && selectedId) {
+          const { xRoom, yRoom } = screenToRoom(e);
+          const item = furniture.find(f => f.id === selectedId);
+          if (!item) return;
+
+          const size = getRoomPixelSize();
+          let newX = xRoom - dragOffsetX;
+          let newY = yRoom - dragOffsetY;
+
+          // Snap movement to grid (except doors/windows which snap to wall)
+          const cellPx = room.cellSizeCm / room.cmPerPixel;
+          if (!item.isDoor && !item.isWindow) {
+            newX = snapToGridPx(newX);
+            newY = snapToGridPx(newY);
+          }
+
+          // דלתות וחלונות - תמיד snap לקיר
+          if (item.isDoor || item.isWindow) {
+            item.x = newX;
+            item.y = newY;
+
+            if (item.isDoor) {
+              snapDoorToWall(item);
+            } else {
+              snapWindowToWall(item);
+            }
+          } else {
+            // רהיטים רגילים - לשמור בתוך צורת החדר ולמנוע חפיפה
+            newX = Math.max(0, Math.min(newX, size.w - item.widthPx));
+            newY = Math.max(0, Math.min(newY, size.h - item.heightPx));
+
+            // Try full move first
+            const moveAllowed = !collidesWithOthers(item, newX, newY) && rectFullyInsideRoom(newX, newY, item.widthPx, item.heightPx);
+            if (moveAllowed) {
+              item.x = newX;
+              item.y = newY;
+              livePreviewRect = { x: item.x, y: item.y, w: item.widthPx, h: item.heightPx, blocked: false };
+            } else {
+              // Sliding behavior: try X-only then Y-only
+              const tryX = {
+                x: newX,
+                y: item.y
+              };
+              const tryY = {
+                x: item.x,
+                y: newY
+              };
+              const canX = !collidesWithOthers(item, tryX.x, tryX.y) && rectFullyInsideRoom(tryX.x, tryX.y, item.widthPx, item.heightPx);
+              const canY = !collidesWithOthers(item, tryY.x, tryY.y) && rectFullyInsideRoom(tryY.x, tryY.y, item.widthPx, item.heightPx);
+              if (canX && !canY) {
+                item.x = tryX.x;
+              } else if (!canX && canY) {
+                item.y = tryY.y;
+              } else if (canX && canY) {
+                // choose the axis with the larger movement magnitude
+                const dx = Math.abs(newX - item.x);
+                const dy = Math.abs(newY - item.y);
+                if (dx >= dy) item.x = tryX.x; else item.y = tryY.y;
+              } // otherwise blocked, do not move
+              livePreviewRect = { x: tryX.x, y: tryY.y, w: item.widthPx, h: item.heightPx, blocked: !(canX||canY) };
+            }
+          }
+
+          // חישוב מידות האייטם בסנטימטרים לתווית החיה
+          ensureSegments(item);
+          getItemBounding(item);
+          const totalWidthCm = item.widthPx * room.cmPerPixel;
+          const totalHeightCm = item.heightPx * room.cmPerPixel;
+
+          liveSizeLabel = {
+            x: item.x + item.widthPx / 2,
+            y: item.y, // מעל האייטם
+            text: `${formatDim(totalWidthCm)} × ${formatDim(totalHeightCm)}`
+          };
+
+          // Distance to room bounds (L/R/T/B) in cm
+          const leftCm = (item.x) * room.cmPerPixel;
+          const rightCm = (size.w - (item.x + item.widthPx)) * room.cmPerPixel;
+          const topCm = (item.y) * room.cmPerPixel;
+          const bottomCm = (size.h - (item.y + item.heightPx)) * room.cmPerPixel;
+          // nearest obstacle distance (other furniture)
+          let nearestPx = Infinity;
+          for (const other of furniture) {
+            if (other.id === item.id) continue;
+            const d = distanceBetweenBounding(item, other);
+            if (d < nearestPx) nearestPx = d;
+          }
+          const nearestCm = isFinite(nearestPx) ? nearestPx * room.cmPerPixel : null;
+
+          liveDistanceLabel = {
+            x: item.x + item.widthPx / 2,
+            y: item.y + item.heightPx + 6,
+            text: `L:${leftCm.toFixed(1)}cm R:${rightCm.toFixed(1)}cm T:${topCm.toFixed(1)}cm B:${bottomCm.toFixed(1)}cm${nearestCm!=null?(' N:'+nearestCm.toFixed(1)+'cm'):''}`
+          };
+
+          draw();
+        } else if (isPanningView) {
+        const rect = canvas.getBoundingClientRect();
+        const xScreen = e.clientX - rect.left;
+        const yScreen = e.clientY - rect.top;
+        const dx = xScreen - panStartX;
+        const dy = yScreen - panStartY;
+        panX = panStartOffsetX + dx;
+        panY = panStartOffsetY + dy;
+        draw();
+      } else {
+        liveSizeLabel = null;
+      }
+    }
+
+    function onMouseUp(e) {
+      try { if (e && e.preventDefault) e.preventDefault(); } catch (err) {}
+      // 1. מצב Room design - המלבן מגדיל את החדר
+      if (roomDesignMode && isDrawingItem) {
+        isDrawingItem = false;
+        const rect = currentDrawRect;
+        currentDrawRect = null;
+        liveSizeLabel = null;
+
+        if (!rect || rect.w < 5 || rect.h < 5) {
+          liveDistanceLabel = null;
+          draw();
+          return;
+        }
+
+        // היסטוריה לפני שינוי צורת החדר
+        pushHistory();
+
+        // לוודא שיש לפחות סגמנט אחד בסיסי אם משום מה אין
+        if (!room.segments || !room.segments.length) {
+          const baseW = room.widthCm / room.cmPerPixel;
+          const baseH = room.heightCm / room.cmPerPixel;
+          room.segments = [{
+            x: 0,
+            y: 0,
+            widthPx: baseW,
+            heightPx: baseH
+          }];
+        }
+
+        let segRect = {
+          x: rect.x,
+          y: rect.y,
+          w: rect.w,
+          h: rect.h
+        };
+
+        // אם ציירת מעבר לשמאל/למעלה - מזיזים את כל החדר והרהיטים כדי שהכל יהיה >= 0
+        let shiftX = 0;
+        let shiftY = 0;
+        if (segRect.x < 0) shiftX = -segRect.x;
+        if (segRect.y < 0) shiftY = -segRect.y;
+
+        if (shiftX || shiftY) {
+          room.segments.forEach(s => {
+            s.x += shiftX;
+            s.y += shiftY;
+          });
+          furniture.forEach(it => {
+            it.x += shiftX;
+            it.y += shiftY;
+          });
+          segRect.x += shiftX;
+          segRect.y += shiftY;
+        }
+
+        // מוסיפים את הסגמנט החדש לחדר
+        room.segments.push({
+          x: segRect.x,
+          y: segRect.y,
+          widthPx: segRect.w,
+          heightPx: segRect.h
+        });
+
+        // עדכון המידות הכלליות לפי כל הסגמנטים
+        updateRoomSizeFromSegments();
+        resizeCanvasToRoom();
+        liveDistanceLabel = null;
+        draw();
+        updateInfoLabels();
+        // record the change so Undo can revert adding the room segment
+        pushHistory();
+        return;
+      }
+
+
+
+      // 2. מצב Draw רגיל - יצירת רהיט חדש כמו קודם
+      if (drawMode && !roomDesignMode && isDrawingItem) {
+        isDrawingItem = false;
+        const rect = currentDrawRect;
+        currentDrawRect = null;
+        liveSizeLabel = null; // מנקה תווית אחרי שהאייטם נוצר
+        if (!rect || rect.w < 5 || rect.h < 5) {
+          draw();
+          return;
+        }
+
+        // Snap rect to grid before finalizing
+        rect.x = snapToGridPx(rect.x);
+        rect.y = snapToGridPx(rect.y);
+        rect.w = Math.max(1, snapToGridPx(rect.w));
+        rect.h = Math.max(1, snapToGridPx(rect.h));
+
+        const widthCm = rect.w * room.cmPerPixel;
+        const heightCm = rect.h * room.cmPerPixel;
+        const fromBoxName = fNameInput.value.trim();
+        let name = fromBoxName;
+        if (!name) {
+          const defaultName = `Item ${nextId}`;
+          name = (prompt("Furniture name:", defaultName) || defaultName).trim();
+        }
+        if (!name) {
+          name = `Item ${nextId}`;
+        }
+
+        const color = colorPalette[(nextId - 1) % colorPalette.length];
+
+        const item = {
+          id: nextId++,
+          name,
+          x: rect.x,
+          y: rect.y,
+          widthPx: rect.w,
+          heightPx: rect.h,
+          color,
+          segments: [{
+            x: 0,
+            y: 0,
+            widthPx: rect.w,
+            heightPx: rect.h,
+            widthCm,
+            heightCm
+          }]
+        };
+
+
+        if (!rectFullyInsideRoom(item.x, item.y, item.widthPx, item.heightPx)) {
+          alert("Cannot place furniture outside the room shape.");
+          nextId -= 1;
+          restoreSnapshot(historyIndex);
+          draw();
+          return;
+        }
+
+        if (collidesWithOthers(item, item.x, item.y)) {
+          alert("Cannot place furniture on top of an existing item.");
+          nextId -= 1;
+          restoreSnapshot(historyIndex);
+          draw();
+          return;
+        }
+
+        furniture.push(item);
+        selectedId = item.id;
+        refreshSelectionUI();
+        liveDistanceLabel = null;
+        draw();
+        return;
+      }
+
+      // 3. שחרור רגיל - גרירה / פאן
+      // If a drag was started, record final snapshot
+      if (dragStarted) {
+        pushHistory();
+        dragStarted = false;
+      }
+      isDraggingItem = false;
+      try { if (e.pointerId != null) canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+      if (isPanningView) {
+        isPanningView = false;
+        canvasScroll.classList.remove("grabbing");
+      }
+      liveSizeLabel = null;
+      liveDistanceLabel = null;
+      livePreviewRect = null;
+      draw();
+    }
+
+
+
+    function onWheel(e) {
+      e.preventDefault();
+      const { xScreen, xRoom, yRoom } = screenToRoom(e);
+
+      const delta = e.deltaY;
+      const zoomFactor = delta < 0 ? 1.1 : 0.9;
+      const newZoom = Math.min(8, Math.max(0.3, zoom * zoomFactor));
+
+      panX = xScreen - xRoom * newZoom;
+      panY = yScreenRelative(e) - yRoom * newZoom;
+      zoom = newZoom;
+
+      draw();
+    }
+
+    function rotateSelectedItem() {
+      if (!selectedId) return;
+      const item = furniture.find(f => f.id === selectedId);
+      if (!item) return;
+
+      pushHistory();
+      rotateItem90InPlace(item);
+      draw();
+      refreshSelectionUI();
+    }
+
+    function deleteSelectedItem() {
+      if (!selectedId) return;
+      pushHistory();
+      furniture = furniture.filter(f => f.id !== selectedId);
+      selectedId = null;
+      refreshSelectionUI();
+      draw();
+    }
+
+    function nudgeSelected(dx, dy) {
+      if (!selectedId) return;
+
+      const item = furniture.find(f => f.id === selectedId);
+      if (!item) return;
+
+      ensureSegments(item);
+      const size = getRoomPixelSize();
+
+      // דלת - מזיזים ומצמידים מחדש לקיר
+      if (item.isDoor) {
+        const newX = item.x + dx;
+        const newY = item.y + dy;
+
+        // לא מזיזים אם אין שינוי אמיתי
+        if (newX === item.x && newY === item.y) return;
+
+        pushHistory();
+        item.x = newX;
+        item.y = newY;
+        snapDoorToWall(item);
+
+        draw();
+        refreshSelectionUI();
+        return;
+      }
+
+      // רהיט רגיל
+      let newX = item.x + dx;
+      let newY = item.y + dy;
+
+      // שמירה בתוך גבולות החדר
+      newX = Math.max(0, Math.min(newX, size.w - item.widthPx));
+      newY = Math.max(0, Math.min(newY, size.h - item.heightPx));
+
+      // אם אחרי הקלמפ אין שינוי - לא עושים כלום
+      if (newX === item.x && newY === item.y) return;
+
+      // בדיקת חפיפה במצב מציאותי
+      if (!allowOverlap && collidesWithOthers(item, newX, newY)) {
+        return;
+      }
+
+      // בדיקה שהמלבן נשאר בתוך צורת החדר
+      if (!rectFullyInsideRoom(newX, newY, item.widthPx, item.heightPx)) {
+        return;
+      }
+
+      pushHistory();
+      item.x = newX;
+      item.y = newY;
+
+      draw();
+      refreshSelectionUI();
+    }
+
+    function distanceBetweenBounding(a, b) {
+      const ax2 = a.x + a.widthPx;
+      const ay2 = a.y + a.heightPx;
+      const bx2 = b.x + b.widthPx;
+      const by2 = b.y + b.heightPx;
+
+      const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(ax2, bx2));
+      const dy = Math.max(0, Math.max(a.y, b.y) - Math.min(ay2, by2));
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function mergeSelectedWithNeighbor() {
+      if (!selectedId) return;
+      const item = furniture.find(f => f.id === selectedId);
+      if (!item) return;
+
+      ensureSegments(item);
+      let bestNeighbor = null;
+      let bestDistance = Infinity;
+      const threshold = 8;
+
+      furniture.forEach(other => {
+        if (other.id === item.id) return;
+        const d = distanceBetweenBounding(item, other);
+        if (d < bestDistance) {
+          bestDistance = d;
+          bestNeighbor = other;
+        }
+      });
+
+      if (!bestNeighbor || bestDistance > threshold) {
+        alert("No touching or very near neighbor found. Move items closer and try again.");
+        return;
+      }
+
+      pushHistory();
+      ensureSegments(bestNeighbor);
+
+      const segmentsAbs = [];
+      item.segments.forEach(seg => {
+        segmentsAbs.push({
+          x: item.x + seg.x,
+          y: item.y + seg.y,
+          widthPx: seg.widthPx,
+          heightPx: seg.heightPx,
+          sourceName: item.name
+        });
+      });
+      bestNeighbor.segments.forEach(seg => {
+        segmentsAbs.push({
+          x: bestNeighbor.x + seg.x,
+          y: bestNeighbor.y + seg.y,
+          widthPx: seg.widthPx,
+          heightPx: seg.heightPx,
+          sourceName: bestNeighbor.name
+        });
+      });
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      segmentsAbs.forEach(seg => {
+        minX = Math.min(minX, seg.x);
+        minY = Math.min(minY, seg.y);
+        maxX = Math.max(maxX, seg.x + seg.widthPx);
+        maxY = Math.max(maxY, seg.y + seg.heightPx);
+      });
+
+      const newWidthPx = maxX - minX;
+      const newHeightPx = maxY - minY;
+
+      const newSegments = segmentsAbs.map(seg => ({
+        x: seg.x - minX,
+        y: seg.y - minY,
+        widthPx: seg.widthPx,
+        heightPx: seg.heightPx,
+        widthCm: seg.widthPx * room.cmPerPixel,
+        heightCm: seg.heightPx * room.cmPerPixel,
+        label: seg.sourceName
+      }));
+
+      const defaultName = `${item.name}+${bestNeighbor.name}`;
+      const mergedName = (prompt("Name for merged item:", defaultName) || defaultName).trim();
+
+      const mergedItem = {
+        id: nextId++,
+        name: mergedName || defaultName,
+        x: minX,
+        y: minY,
+        widthPx: newWidthPx,
+        heightPx: newHeightPx,
+        color: item.color,
+        segments: newSegments
+      };
+
+      furniture = furniture.filter(f => f.id !== item.id && f.id !== bestNeighbor.id);
+      furniture.push(mergedItem);
+      selectedId = mergedItem.id;
+
+      refreshSelectionUI();
+      draw();
+    }
+
+    function applyRoomWithHistory() 
+    {
+      pushHistory();
+      applyRoomChanges();
+      pushHistory();
+    }
+
+
+    function refreshSelectionUI() {
+      if (!selectedId) {
+        selectedInfo.textContent = "No item selected.";
+        rotateBtn.disabled = true;
+        deleteBtn.disabled = true;
+        mergeBtn.disabled = true;
+
+        if (selectedNameInput) {
+          selectedNameInput.value = "";
+          selectedNameInput.disabled = true;
+        }
+        if (selectedWidthInput && selectedHeightInput) {
+          selectedWidthInput.value = "";
+          selectedHeightInput.value = "";
+          selectedWidthInput.disabled = true;
+          selectedHeightInput.disabled = true;
+        }
+        if (selectedXInput && selectedYInput) {
+          selectedXInput.value = "";
+          selectedYInput.value = "";
+          selectedXInput.disabled = true;
+          selectedYInput.disabled = true;
+        }
+        return;
+      }
+
+      const item = furniture.find(f => f.id === selectedId);
+      if (!item) {
+        selectedInfo.textContent = "No item selected.";
+        rotateBtn.disabled = true;
+        deleteBtn.disabled = true;
+        mergeBtn.disabled = true;
+
+        if (selectedNameInput) {
+          selectedNameInput.value = "";
+          selectedNameInput.disabled = true;
+        }
+        if (selectedWidthInput && selectedHeightInput) {
+          selectedWidthInput.value = "";
+          selectedHeightInput.value = "";
+          selectedWidthInput.disabled = true;
+          selectedHeightInput.disabled = true;
+        }
+        return;
+      }
+
+      ensureSegments(item);
+
+      selectedInfo.innerHTML =
+        `Selected: <strong>${item.name}</strong><br/>Size: ${getItemSizeLabel(item)}`;
+      rotateBtn.disabled = false;
+      deleteBtn.disabled = false;
+      mergeBtn.disabled = false;
+
+      if (selectedNameInput) {
+        selectedNameInput.disabled = false;
+        selectedNameInput.value = item.name;
+      }
+
+      if (selectedWidthInput && selectedHeightInput) {
+        const seg = item.segments[0];
+
+        if ((item.isDoor || item.isWindow) && item.segments.length === 1) {
+          const lengthCm = item.isDoor
+            ? (item.doorLengthCm != null
+                ? item.doorLengthCm
+                : (seg.widthCm || seg.heightCm || 0))
+            : (item.windowLengthCm != null
+                ? item.windowLengthCm
+                : (seg.widthCm || seg.heightCm || 0));
+
+          selectedWidthInput.disabled = false;   // אורך
+          selectedHeightInput.disabled = true;   // אין עומק
+          selectedWidthInput.value = lengthCm.toFixed(0);
+          selectedHeightInput.value = "";
+        } else if (item.segments.length === 1) {
+          selectedWidthInput.disabled = false;
+          selectedHeightInput.disabled = false;
+          selectedWidthInput.value = seg.widthCm.toFixed(0);
+          selectedHeightInput.value = seg.heightCm.toFixed(0);
+        } else {
+          selectedWidthInput.value = "";
+          selectedHeightInput.value = "";
+          selectedWidthInput.disabled = true;
+          selectedHeightInput.disabled = true;
+        }
+      }
+
+      if (selectedXInput && selectedYInput) {
+        selectedXInput.disabled = false;
+        selectedYInput.disabled = false;
+        // show positions in cm
+        selectedXInput.value = Math.round(item.x * room.cmPerPixel);
+        selectedYInput.value = Math.round(item.y * room.cmPerPixel);
+      }
+      }
+    }
+
+    function setDrawMode(active) {
+      drawMode = active;
+      isDrawingItem = false;
+      currentDrawRect = null;
+      if (drawMode) {
+        toggleDrawModeBtn.classList.add("mode-active");
+        toggleDrawModeBtn.classList.remove("secondary");
+        modeHint.textContent = "Mode: draw furniture with mouse (drag a rectangle inside the room).";
+      } else {
+        toggleDrawModeBtn.classList.remove("mode-active");
+        toggleDrawModeBtn.classList.add("secondary");
+        modeHint.textContent = "Mode: numeric placement and drag.";
+      }
+      draw();
+    }
+
+    function autoArrange() {
+      if (!furniture.length) return;
+      pushHistory();
+      const prevState = captureState();
+
+      const size = getRoomPixelSize();
+      const doorClearances = getDoorClearanceRects();
+      const step = 20;
+
+      const centerRect = {
+        x: size.w * 0.25,
+        y: size.h * 0.25,
+        w: size.w * 0.5,
+        h: size.h * 0.5
+      };
+
+      function hasOverlapCandidate(item, x, y, w, h) {
+        const overlapsFurniture = furniture.some(other => {
+          if (other.id === item.id) return false;
+          getItemBounding(other);
+          const ox = other.x;
+          const oy = other.y;
+          const ow = other.widthPx;
+          const oh = other.heightPx;
+
+          if (x + w <= ox) return false;
+          if (ox + ow <= x) return false;
+          if (y + h <= oy) return false;
+          if (oy + oh <= y) return false;
+          return true;
+        });
+        if (overlapsFurniture) return true;
+
+        for (const dr of doorClearances) {
+          if (segmentsOverlap(x, y, w, h, dr.x, dr.y, dr.w, dr.h)) {
+            return true;
+          }
+        }
+          if (!rectFullyInsideRoom(x, y, w, h)) {
+            return true;
+        }
+        return false;
+      }
+
+      function rectIntersectionArea(r1, r2) {
+        const xOverlap = Math.max(
+          0,
+          Math.min(r1.x + r1.w, r2.x + r2.w) - Math.max(r1.x, r2.x)
+        );
+        const yOverlap = Math.max(
+          0,
+          Math.min(r1.y + r1.h, r2.y + r2.h) - Math.max(r1.y, r2.y)
+        );
+        return xOverlap * yOverlap;
+      }
+
+      function distanceToNearestWall(rect) {
+        const dLeft = rect.x;
+        const dTop = rect.y;
+        const dRight = size.w - (rect.x + rect.w);
+        const dBottom = size.h - (rect.y + rect.h);
+        return Math.min(dLeft, dTop, dRight, dBottom);
+      }
+
+      furniture.forEach(it => {
+        ensureSegments(it);
+        getItemBounding(it);
+      });
+
+      const movableItems = furniture.filter(it => !it.isDoor && !it.isWindow);
+
+
+      const items = [...movableItems].sort((a, b) => {
+        const areaA = a.widthPx * a.heightPx;
+        const areaB = b.widthPx * b.heightPx;
+        return areaB - areaA;
+      });
+
+      items.forEach(item => {
+        let bestScore = Infinity;
+        let bestX = item.x;
+        let bestY = item.y;
+        let bestRotate = false;
+
+        for (let ori = 0; ori < 2; ori++) {
+          const w = (ori === 0 ? item.widthPx : item.heightPx);
+          const h = (ori === 0 ? item.heightPx : item.widthPx);
+
+          const maxX = size.w - w;
+          const maxY = size.h - h;
+          if (maxX < 0 || maxY < 0) continue;
+
+          for (let y = 0; y <= maxY; y += step) {
+            for (let x = 0; x <= maxX; x += step) {
+              if (hasOverlapCandidate(item, x, y, w, h)) continue;
+
+              const rect = { x, y, w, h };
+              const overlapCenter = rectIntersectionArea(rect, centerRect);
+              const distWall = distanceToNearestWall(rect);
+
+              const score = overlapCenter * 1000 + distWall;
+
+              if (score < bestScore) {
+                bestScore = score;
+                bestX = x;
+                bestY = y;
+                bestRotate = (ori === 1);
+              }
+            }
+          }
+        }
+
+        if (bestScore < Infinity) {
+          if (bestRotate) {
+            rotateItem90InPlace(item);
+          }
+          item.x = bestX;
+          item.y = bestY;
+          getItemBounding(item);
+        }
+      });
+
+      draw();
+
+      if (isDoorBlocked()) {
+        Object.assign(room, prevState.room);
+        furniture = prevState.furniture;
+        selectedId = prevState.selectedId;
+        zoom = prevState.zoom;
+        panX = prevState.panX;
+        panY = prevState.panY;
+
+        draw();
+        refreshSelectionUI();
+        alert("Auto arrange could not find a layout that keeps the door clear.");
+      }
+    }
+    applyRoomBtn.addEventListener("click", applyRoomWithHistory);
+    resetViewBtn.addEventListener("click", resetView);
+    autoArrangeBtn.addEventListener("click", autoArrange);
+
+    addFurnitureBtn.addEventListener("click", addFurniture);
+    toggleDrawModeBtn.addEventListener("click", () => setDrawMode(!drawMode));
+    addDoorBtn.addEventListener("click", addDoor);
+    addWindowBtn.addEventListener("click", addWindow);
+    rotateBtn.addEventListener("click", rotateSelectedItem);
+    mergeBtn.addEventListener("click", mergeSelectedWithNeighbor);
+    deleteBtn.addEventListener("click", deleteSelectedItem);
+    undoBtn.addEventListener("click", undoLast);
+    redoBtn.addEventListener("click", redoLast);
+    exportPngBtn.addEventListener("click", exportAsPng);
+    exportPdfBtn.addEventListener("click", exportAsPdf);
+
+
+    if (selectedNameInput) {
+      selectedNameInput.disabled = true;
+
+      selectedNameInput.addEventListener("change", () => {
+        if (!selectedId) return;
+        const item = furniture.find(f => f.id === selectedId);
+        if (!item) return;
+
+        pushHistory();
+
+        const raw = selectedNameInput.value;
+        const newName = (raw && raw.trim()) || `Item ${item.id}`;
+
+        item.name = newName;
+        ensureSegments(item);
+        item.segments.forEach(seg => {
+          seg.label = newName;
+        });
+
+        refreshSelectionUI();
+        draw();
+      });
+    }
+
+    if (selectedWidthInput && selectedHeightInput) {
+      selectedWidthInput.disabled = true;
+      selectedHeightInput.disabled = true;
+
+      const onSizeChange = () => {
+        if (!selectedId) return;
+        const item = furniture.find(f => f.id === selectedId);
+        if (!item) return;
+
+        ensureSegments(item);
+        if (item.segments.length !== 1) {
+          return;
+        }
+
+        // היסטוריה לפני שינוי המידות
+        pushHistory();
+
+        const seg = item.segments[0];
+
+        const newWidthCm = parseFloat(selectedWidthInput.value);
+        const newHeightCm = parseFloat(selectedHeightInput.value);
+
+        // ----- דלת/חלון: משנים רק את האורך -----
+        if (item.isDoor || item.isWindow) {
+          const newLengthCm = newWidthCm;
+
+          if (!newLengthCm || newLengthCm <= 0) {
+            const lengthCm = item.isDoor
+              ? (item.doorLengthCm != null
+                  ? item.doorLengthCm
+                  : (seg.widthCm || seg.heightCm || 0))
+              : (item.windowLengthCm != null
+                  ? item.windowLengthCm
+                  : (seg.widthCm || seg.heightCm || 0));
+
+            selectedWidthInput.value = lengthCm.toFixed(0);
+            return;
+          }
+
+          if (item.isDoor) {
+            item.doorLengthCm = newLengthCm;
+            snapDoorToWall(item);
+          } else {
+            item.windowLengthCm = newLengthCm;
+            snapWindowToWall(item);
+          }
+
+          pushHistory();
+          draw();
+          refreshSelectionUI();
+          return;
+        }
+
+
+        if (!newWidthCm || !newHeightCm || newWidthCm <= 0 || newHeightCm <= 0) {
+          selectedWidthInput.value = seg.widthCm.toFixed(0);
+          selectedHeightInput.value = seg.heightCm.toFixed(0);
+          return;
+        }
+
+        const size = getRoomPixelSize();
+
+        const old = {
+          x: item.x,
+          y: item.y,
+          widthPx: item.widthPx,
+          heightPx: item.heightPx,
+          segWidthPx: seg.widthPx,
+          segHeightPx: seg.heightPx,
+          segWidthCm: seg.widthCm,
+          segHeightCm: seg.heightCm
+        };
+
+        const newWidthPx = newWidthCm / room.cmPerPixel;
+        const newHeightPx = newHeightCm / room.cmPerPixel;
+
+        const centerX = item.x + item.widthPx / 2;
+        const centerY = item.y + item.heightPx / 2;
+
+        let newX = centerX - newWidthPx / 2;
+        let newY = centerY - newHeightPx / 2;
+
+        newX = Math.max(0, Math.min(newX, size.w - newWidthPx));
+        newY = Math.max(0, Math.min(newY, size.h - newHeightPx));
+
+        item.x = newX;
+        item.y = newY;
+        item.widthPx = newWidthPx;
+        item.heightPx = newHeightPx;
+
+        seg.x = 0;
+        seg.y = 0;
+        seg.widthPx = newWidthPx;
+        seg.heightPx = newHeightPx;
+        seg.widthCm = newWidthCm;
+        seg.heightCm = newHeightCm;
+
+        if (!allowOverlap && collidesWithOthers(item, item.x, item.y)) {
+          item.x = old.x;
+          item.y = old.y;
+          item.widthPx = old.widthPx;
+          item.heightPx = old.heightPx;
+
+          seg.x = 0;
+          seg.y = 0;
+          seg.widthPx = old.segWidthPx;
+          seg.heightPx = old.segHeightPx;
+          seg.widthCm = old.segWidthCm;
+          seg.heightCm = old.segHeightCm;
+
+          selectedWidthInput.value = seg.widthCm.toFixed(0);
+          selectedHeightInput.value = seg.heightCm.toFixed(0);
+
+          alert("New size overlaps another item in reality mode.");
+          return;
+
+          if (!rectFullyInsideRoom(item.x, item.y, item.widthPx, item.heightPx)) {
+          // מחזירים אחורה אם זה יוצא מצורת החדר
+          item.x = old.x;
+          item.y = old.y;
+          item.widthPx = old.widthPx;
+          item.heightPx = old.heightPx;
+
+          seg.x = 0;
+          seg.y = 0;
+          seg.widthPx = old.segWidthPx;
+          seg.heightPx = old.segHeightPx;
+          seg.widthCm = old.segWidthCm;
+          seg.heightCm = old.segHeightCm;
+
+          selectedWidthInput.value = seg.widthCm.toFixed(0);
+          selectedHeightInput.value = seg.heightCm.toFixed(0);
+
+          alert("New size goes outside the room shape.");
+          return;
+        }
+
+        }
+
+        draw();
+        refreshSelectionUI();
+      };
+
+      selectedWidthInput.addEventListener("change", onSizeChange);
+      selectedHeightInput.addEventListener("change", onSizeChange);
+
+      // Selected X/Y numeric inputs
+      if (selectedXInput && selectedYInput) {
+        selectedXInput.disabled = true;
+        selectedYInput.disabled = true;
+
+        const onPosChange = () => {
+          if (!selectedId) return;
+          const item = furniture.find(f => f.id === selectedId);
+          if (!item) return;
+
+          const newXcm = parseFloat(selectedXInput.value);
+          const newYcm = parseFloat(selectedYInput.value);
+          if (isNaN(newXcm) || isNaN(newYcm)) return;
+
+          const newX = newXcm / room.cmPerPixel;
+          const newY = newYcm / room.cmPerPixel;
+
+          const size = getRoomPixelSize();
+          const clampedX = Math.max(0, Math.min(newX, size.w - item.widthPx));
+          const clampedY = Math.max(0, Math.min(newY, size.h - item.heightPx));
+
+          if (!allowOverlap && collidesWithOthers(item, clampedX, clampedY)) {
+            // don't move if collides
+            return;
+          }
+
+          pushHistory();
+          item.x = clampedX;
+          item.y = clampedY;
+          draw();
+          refreshSelectionUI();
+        };
+
+        selectedXInput.addEventListener('change', onPosChange);
+        selectedYInput.addEventListener('change', onPosChange);
+      }
+    }
+
+    document.addEventListener("keydown", function (e) {
+      const tag = e.target.tagName.toLowerCase();
+      const isInput = tag === "input" || tag === "textarea";
+      const isEditable = e.target.isContentEditable;
+      const ctrlOrMeta = e.ctrlKey || e.metaKey;
+
+      // 1. Enter - פעולות מהירות לפי המקום שבו הפוקוס
+      if (e.key === "Enter") {
+        // אם אנחנו בשדות של "New furniture" - Enter יוסיף רהיט
+        if (e.target === fNameInput ||
+            e.target === fWidthInput ||
+            e.target === fHeightInput) {
+          e.preventDefault();
+          addFurniture();
+          return;
+        }
+
+        // אם אנחנו בשדות של הגדרות החדר - Enter יעשה Apply
+        if (e.target === roomWidthInput ||
+            e.target === roomHeightInput ||
+            e.target === cmPerPixelInput ||
+            e.target === cellSizeCmInput) {
+          e.preventDefault();
+          applyRoomWithHistory();
+          return;
+        }
+
+        // בשדות אחרים (שם אייטם, מידות אייטם) ניתן לדפדפן לטפל
+        return;
+      }
+
+      // אם הפוקוס בתוך input/textarea/contentEditable - לא נשתלט על קיצורי דרך
+      if (isInput || isEditable) {
+        return;
+      }
+
+      const keyLower = e.key.toLowerCase();
+      const code = e.code;
+
+      // 2. Ctrl+Z / Cmd+Z - Undo (לפי המקש הפיזי, יעבוד גם בעברית)
+      if (ctrlOrMeta && !e.shiftKey && code === "KeyZ") {
+        e.preventDefault();
+        undoLast();
+        return;
+      }
+
+      // 3. Ctrl+Y או Ctrl+Shift+Z - Redo (גם כאן לפי המקש הפיזי)
+      if (ctrlOrMeta &&
+          (code === "KeyY" || (e.shiftKey && code === "KeyZ"))) {
+        e.preventDefault();
+        redoLast();
+        return;
+      }
+
+
+      // 4. סיבוב עם R או ר (עברית)
+      if (!ctrlOrMeta && !e.altKey) {
+        const keyLower = e.key.toLowerCase();
+        if ((keyLower === "r" || keyLower === "ר") && selectedId != null) {
+          e.preventDefault();
+          rotateSelectedItem();
+          return;
+        }
+      }
+
+      // 5. ניוד עם חיצים - כמה פיקסלים
+      if (selectedId != null) {
+        const step = e.shiftKey ? 10 : 2; // Shift+חץ = קפיצה גדולה יותר
+
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          nudgeSelected(0, -step);
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          nudgeSelected(0, step);
+          return;
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          nudgeSelected(-step, 0);
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          nudgeSelected(step, 0);
+          return;
+        }
+      }
+
+      // 6. מחיקה עם Delete / Backspace כאשר יש אייטם נבחר
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedId != null) {
+          e.preventDefault();
+          deleteSelectedItem();
+        }
+      }
+    });
+
+
+
+
+    // Pointer Events for unified mouse/touch handling
+    canvas.addEventListener("pointerdown", onMouseDown);
+    window.addEventListener("pointermove", onMouseMove);
+    window.addEventListener("pointerup", onMouseUp);
+    // Keep mouse listeners for older environments where Pointer Events are unavailable
+    canvas.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+
+    // Touch fallbacks (map first touch to pointer handlers) - non-passive so we can prevent scrolling
+    canvas.addEventListener('touchstart', function (ev) {
+      // handle single-touch as pointer; handle two-touch as pinch start
+      try { ev.preventDefault(); } catch (e) {}
+      const touches = ev.touches;
+      if (touches && touches.length >= 2) {
+        isPinching = true;
+        pinchStartDist = Math.hypot(
+          touches[0].clientX - touches[1].clientX,
+          touches[0].clientY - touches[1].clientY
+        );
+        pinchStartZoom = zoom;
+        pinchCenter = {
+          x: (touches[0].clientX + touches[1].clientX) / 2,
+          y: (touches[0].clientY + touches[1].clientY) / 2
+        };
+        return;
+      }
+      const t = touches[0];
+      if (!t) return;
+      onMouseDown({ clientX: t.clientX, clientY: t.clientY, pointerId: 1 });
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', function (ev) {
+      try { ev.preventDefault(); } catch (e) {}
+      const touches = ev.touches;
+      if (isPinching && touches && touches.length >= 2) {
+        const dist = Math.hypot(
+          touches[0].clientX - touches[1].clientX,
+          touches[0].clientY - touches[1].clientY
+        );
+        if (pinchStartDist > 0) {
+          const newZoom = Math.min(8, Math.max(0.3, pinchStartZoom * (dist / pinchStartDist)));
+          // adjust pan so zoom centers on pinchCenter
+          const rect = canvas.getBoundingClientRect();
+          const cx = pinchCenter.x - rect.left;
+          const cy = pinchCenter.y - rect.top;
+          const xRoom = (cx - panX) / zoom;
+          const yRoom = (cy - panY) / zoom;
+
+          panX = cx - xRoom * newZoom;
+          panY = cy - yRoom * newZoom;
+          zoom = newZoom;
+          draw();
+        }
+        return;
+      }
+      const t = touches[0];
+      if (!t) return;
+      onMouseMove({ clientX: t.clientX, clientY: t.clientY, pointerId: 1 });
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', function (ev) {
+      try { ev.preventDefault(); } catch (e) {}
+      const touches = ev.touches || [];
+      if (isPinching && touches.length < 2) {
+        isPinching = false;
+        pinchStartDist = 0;
+      }
+      const t = ev.changedTouches && ev.changedTouches[0];
+      onMouseUp({ clientX: t ? t.clientX : 0, clientY: t ? t.clientY : 0, pointerId: 1 });
+    }, { passive: false });
+
+    // כאן הכניסה החדשה – מאפס גם אחרי F5
+    initRoomDefaults();
+    applyRoomChanges();
+
+    applyRoomChanges();
+    pushHistory();
+    updateUndoRedoUI();
+    refreshSelectionUI();
+    updateOverlapButton();
+    updateRoomDesignButton();
+    const shortcutsBtn = document.getElementById("shortcutsBtn");
+    const shortcutsPanel = document.getElementById("shortcutsPanel");
+    const shortcutsCloseBtn = document.getElementById("shortcutsCloseBtn");
+    const showWalkthroughBtn = document.getElementById('showWalkthroughBtn');
+    const walkthroughOverlay = document.getElementById('walkthroughOverlay');
+    const closeWalkthroughBtn = document.getElementById('closeWalkthrough');
+
+    function setShortcutsVisible(show) {
+      if (!shortcutsPanel) return;
+      shortcutsPanel.style.display = show ? "block" : "none";
+    }
+
+    function toggleShortcuts() {
+      if (!shortcutsPanel) return;
+      const isHidden =
+        shortcutsPanel.style.display === "none" || !shortcutsPanel.style.display;
+      setShortcutsVisible(isHidden);
+    }
+
+    if (shortcutsBtn && shortcutsPanel) {
+      shortcutsBtn.addEventListener("click", toggleShortcuts);
+    }
+
+    if (shortcutsCloseBtn) {
+      shortcutsCloseBtn.addEventListener("click", () => setShortcutsVisible(false));
+    }
+
+    if (showWalkthroughBtn && walkthroughOverlay) {
+      showWalkthroughBtn.addEventListener('click', () => { walkthroughOverlay.style.display = 'block'; });
+    }
+    if (closeWalkthroughBtn && walkthroughOverlay) {
+      closeWalkthroughBtn.addEventListener('click', () => { walkthroughOverlay.style.display = 'none'; });
+    }
+
+    // סגירה עם ESC - לא נוגע בשאר קיצורי המקלדת
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" || e.key === "Esc") {
+        if (shortcutsPanel && shortcutsPanel.style.display === "block") {
+          e.preventDefault();
+          setShortcutsVisible(false);
+        }
+      }
+    });
+
+  </script>
+    <a
+  href="https://buymeacoffee.com/jkimd1908t"
+  target="_blank"
+  rel="noopener"
+  class="buy-coffee-btn"
+>
+  ☕ Buy me a coffee
+</a>
+
+</body>
+</html>
